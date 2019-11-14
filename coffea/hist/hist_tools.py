@@ -8,6 +8,7 @@ import math
 import numbers
 import re
 import warnings
+import boost_histogram as bh
 
 # Python 2 and 3 compatibility
 _regex_pattern = re.compile("dummy").__class__
@@ -291,10 +292,8 @@ class Cat(SparseAxis):
     """
     def __init__(self, name, label, sorting='identifier'):
         super(Cat, self).__init__(name, label)
-        # In all cases key == value.name
-        self._bins = {}
+        self._bh = bh.axis.category([''], growth=True)
         self._sorting = sorting
-        self._sorted = []
 
     def index(self, identifier):
         """Index of a identifer or label
@@ -309,15 +308,8 @@ class Cat(SparseAxis):
         the identifier was not seen before by this axis.
         """
         if isinstance(identifier, StringBin):
-            index = identifier
-        else:
-            index = StringBin(identifier)
-        if index.name not in self._bins:
-            self._bins[index.name] = index
-            self._sorted.append(index.name)
-            if self._sorting == 'identifier':
-                self._sorted.sort()
-        return self._bins[index.name]
+            identifier = identifier.name
+        return self._bh.index(identifier)
 
     def __eq__(self, other):
         # Sparse, so as long as name is the same
