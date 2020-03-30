@@ -3,6 +3,7 @@ import logging
 import hashlib
 import json
 import os
+from functools import lru_cache
 from threading import Lock
 from collections.abc import Mapping, MutableMapping
 import numpy
@@ -11,6 +12,9 @@ import httpx
 import awkward
 from minio.error import NoSuchKey
 from io import BytesIO
+import blosc
+import cloudpickle
+import lz4.frame as lz4f
 
 
 def _default_server():
@@ -72,7 +76,9 @@ class S3MutableMapping(MutableMapping):
         self._s3.remove_object(self._bucket, key)
 
     def __iter__(self):
-        return (o.object_name for o in self._s3.list_objects(self._bucket, recursive=True))
+        return (
+            o.object_name for o in self._s3.list_objects(self._bucket, recursive=True)
+        )
 
     def __len__(self):
         raise NotImplementedError("No performant way to count bucket size")
@@ -83,19 +89,28 @@ class ColumnClient:
     _state = {}
     _initlock = Lock()
 
-    def __init__(self):
+    def _initialize(self, config=None):
+        if config is None:
+            self._api = httpx.Client(
+                base_url=ColumnClient.server_url,
+                # TODO: timeout/retry
+            )
+            config = self._api.get("/clientconfig").json()
+        self._storage = self._init_storage(config["storage"])
+        self._file_catalog = config["file_catalog"]
+        self._xrootdsource = config["xrootdsource"]
+        self._xrootdsource_metadata = config["xrootdsource_metadata"]
+        self._init = True
+
+    def __init__(self, config=None):
         self.__dict__ = self._state  # borg
-        if not hasattr(self, "_init"):
-            with self._initlock:
-                self._client = httpx.Client(
-                    base_url=ColumnClient.server_url,
-                    # TODO: timeout/retry
-                )
-                config = self._client.get("/clientconfig").json()
-                self._storage = self._init_storage(config["storage"])
-                self._file_catalog = config["file_catalog"]
-                self._xrootdsource = config["xrootdsource"]
-                self._init = True
+        with self._initlock:
+            if not hasattr(self, "_init"):
+                self._initialize(config)
+
+    def reinitialize(self, config=None):
+        with self._initlock:
+            self._initialize(config)
 
     def _init_storage(self, config):
         if config["type"] == "filesystem":
@@ -108,10 +123,6 @@ class ColumnClient:
         raise ValueError("Unrecognized storage type {config['type']}")
 
     @property
-    def config(self):
-        return self._config
-
-    @property
     def storage(self):
         return self._storage
 
@@ -121,7 +132,20 @@ class ColumnClient:
             return algo["prefix"] + lfn
         raise RuntimeError("Unrecognized LFN2PFN algorithm type")
 
-    def _open_file(self, lfn: str, fallback: int = 0):
+    def open_file_metadata(self, lfn: str, fallback: int = 0):
+        try:
+            pfn = self._lfn2pfn(lfn, fallback)
+            return uproot.open(pfn, xrootdsource=self._xrootdsource_metadata)
+        except IOError as ex:
+            if fallback == len(self.catalog) - 1:
+                raise
+            logger.info("Fallback due to IOError in FileOpener: " + str(ex))
+            return self.open_file_metadata(lfn, fallback + 1)
+
+    @classmethod
+    @lru_cache(maxsize=4)
+    def open_file(cls, lfn: str, fallback: int = 0):
+        self = cls()
         try:
             pfn = self._lfn2pfn(lfn, fallback)
             return uproot.open(pfn, xrootdsource=self._xrootdsource)
@@ -129,11 +153,27 @@ class ColumnClient:
             if fallback == len(self.catalog) - 1:
                 raise
             logger.info("Fallback due to IOError in FileOpener: " + str(ex))
-            return self._open_file(lfn, fallback + 1)
+            return self.open_file(lfn, fallback + 1)
+
+    @classmethod
+    @lru_cache(maxsize=8)
+    def columns(cls, columnset_name: str):
+        self = cls()
+        out = self._api.get("/columnsets/%s" % columnset_name).json()
+        return out["columns"]
+
+    @classmethod
+    @lru_cache(maxsize=8)
+    def generator(cls, generator_name: str):
+        self = cls()
+        out = self._api.get("/generators/%s" % generator_name).json()
+        function = self.storage[out["function_key"]]
+        out["function"] = cloudpickle.loads(lz4f.decompress(function))
+        return out
 
 
 def get_file_metadata(file_lfn: str):
-    file = ColumnClient()._open_file(file_lfn)
+    file = ColumnClient().open_file_metadata(file_lfn)
     info = {"uuid": file._context.uuid.hex(), "trees": []}
     tnames = file.allkeys(
         filterclass=lambda cls: issubclass(cls, uproot.tree.TTreeMethods)
@@ -158,6 +198,7 @@ def get_file_metadata(file_lfn: str):
                     "dimension": dimension,
                     "doc": tree[bname].title.decode("ascii"),
                     "generator": "file",
+                    "packoptions": {},
                 }
             )
         if len(columns) == 0:
@@ -176,14 +217,13 @@ def get_file_metadata(file_lfn: str):
 
 
 class ColumnHelper(Mapping):
-    def __init__(self, client, partition):
-        self._client = client
+    def __init__(self, partition, columns=None):
+        self._client = ColumnClient()
         self._partition = partition
         self._storage = self._client.storage
-        self._columnset = self._client.get(
-            "/columnsets/%s" % self._partition["columnset"]
-        ).json()
-        self._columns = {c.pop("name"): c for c in self._columnset.pop("columns")}
+        if columns is None:
+            columns = self._client.columns(self._partition["columnset"])
+        self._columns = {c["name"]: c for c in columns}
         self._source = None
         self._keyprefix = "/".join(
             [
@@ -194,27 +234,38 @@ class ColumnHelper(Mapping):
             ]
         )
 
-    def _key(self, name):
-        return self._keyprefix + "/" + name
+    def _key(self, col):
+        return "/".join([self._keyprefix, col["generator"], col["name"]])
 
-    def __getitem__(self, name):
+    def _file_generator(self, name):
+        if self._source is None:
+            self._source = self._client.open_file(self._partition["lfn"])[
+                self._partition["tree_name"]
+            ]
+        return self._source[name].array(
+            entrystart=self._partition["start"],
+            entrystop=self._partition["stop"],
+            flatten=True,
+        )
+
+    def _generate(self, col):
+        generator = self._client.generator(col["generator"])
+        return generator["function"](
+            col, ColumnHelper(self._partition, generator["input_columns"])
+        )
+
+    def __getitem__(self, name: str):
         col = self._columns[name]
-        key = self._key(name)
+        key = self._key(col)
         try:
-            return self._storage[key]
+            data = self._storage[key]
+            return blosc.unpack_array(data)
         except KeyError:
-            if col["generator"] != "file":
-                raise NotImplementedError
-            if self._source is None:
-                self._source = self._client._open_file(self._partition["lfn"])[
-                    self._partition["tree_name"]
-                ]
-            out = self._source[name].array(
-                entrystart=self._partition["start"],
-                entrystop=self._partition["stop"],
-                flatten=True,
-            )
-            self._storage[key] = out
+            if col["generator"] == "file":
+                out = self._file_generator(name)
+            else:
+                out = self._generate(col)
+            self._storage[key] = blosc.pack_array(out, **col["packoptions"])
             return out
 
     def __iter__(self):
@@ -223,7 +274,7 @@ class ColumnHelper(Mapping):
     def __len__(self):
         return len(self._columns)
 
-    def virtual(self, name, cache=None):
+    def virtual(self, name: str, cache: MutableMapping = None):
         col = self._columns[name]
         dtype = numpy.dtype(col["dtype"])
         if col["dimension"] == 2:
@@ -239,16 +290,9 @@ class ColumnHelper(Mapping):
             (name,),
             {},
             type=virtualtype,
-            persistentkey=self._key(name),
+            persistentkey=self._key(col),
             cache=cache,
         )
 
     def arrays(self):
         return {k: self.virtual(k) for k in self}
-
-
-if __name__ == "__main__":
-    lfn = "/store/mc/RunIIFall17NanoAODv6/ZH_HToBB_ZToQQ_M125_13TeV_powheg_pythia8/NANOAODSIM/PU2017_12Apr2018_Nano25Oct2019_102X_mc2017_realistic_v7-v1/260000/9E0D57B7-D1B8-EC4F-9CE6-6978F003F700.root"  # noqa
-    from pprint import pprint
-
-    pprint(get_file_metadata(lfn))
