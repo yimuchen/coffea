@@ -15,6 +15,7 @@ from io import BytesIO
 import blosc
 import cloudpickle
 import lz4.frame as lz4f
+from cachetools import LRUCache
 
 
 def _default_server():
@@ -56,6 +57,44 @@ class FilesystemMutableMapping(MutableMapping):
         raise NotImplementedError("No performant way to get directory count")
 
 
+class ReadBuffer(MutableMapping):
+    def __init__(self, cache, base):
+        """Buffers reads from base via cache.
+
+        Assumes cache is not threadsafe, and base is threadsafe.
+        No cacheing is done on write, assuming caller already has what they need
+        """
+        self.lock = Lock()
+        self.cache = cache
+        self.base = base
+
+    def __getitem__(self, key):
+        try:
+            with self.lock:
+                return self.cache[key]
+        except KeyError:
+            out = self.base[key]
+            with self.lock:
+                self.cache[key] = out
+            return out
+
+    def __setitem__(self, key, value):
+        self.base[key] = value
+        with self.lock:
+            self.cache.pop(key, None)
+
+    def __delitem__(self, key):
+        del self.base[key]
+        with self.lock:
+            self.cache.pop(key, None)
+
+    def __iter__(self):
+        return iter(self.base)
+
+    def __len__(self):
+        return len(self.base)
+
+
 class S3MutableMapping(MutableMapping):
     def __init__(self, s3api, bucket):
         """Turn a minio/aws S3 API into a simple mutable mapping"""
@@ -64,8 +103,7 @@ class S3MutableMapping(MutableMapping):
 
     def __getitem__(self, key):
         try:
-            response = self._s3.get_object(self._bucket, key)
-            return response.data
+            return self._s3.get_object(self._bucket, key).data
         except NoSuchKey:
             raise KeyError
 
@@ -82,6 +120,36 @@ class S3MutableMapping(MutableMapping):
 
     def __len__(self):
         raise NotImplementedError("No performant way to count bucket size")
+
+
+class NanoFilter:
+    def __init__(self, filter_column):
+        self.filter_column = filter_column
+
+    @property
+    def name(self):
+        return "nanofilter-" + self.filter_column
+
+    def dig(self, events, colname):
+        prefix, *col = colname.split("_")
+        col = "_".join(col)
+        if col == "":
+            if prefix.startswith("n"):
+                return events[prefix[1:]].counts
+            return events[prefix]
+        return events[prefix][col]
+
+    def __call__(self, col, input_columns):
+        from coffea.nanoaod import NanoEvents
+
+        events = NanoEvents.from_arrays(input_columns.arrays())
+
+        if col["name"] == "_num":
+            return numpy.array(self.dig(events, self.filter_column).sum())
+
+        events = events[self.dig(events, self.filter_column)]
+        out = self.dig(events, col["name"]).flatten()
+        return out.astype(col["dtype"])  # kill any implicit casts
 
 
 class ColumnClient:
@@ -120,6 +188,13 @@ class ColumnClient:
 
             s3api = Minio(**config["args"])
             return S3MutableMapping(s3api, config["bucket"])
+        elif config["type"] == "minio-buffered":
+            from minio import Minio
+
+            s3api = Minio(**config["args"])
+            buffer = LRUCache(config["buffersize"], getsizeof=lambda v: len(v))
+            base = S3MutableMapping(s3api, config["bucket"])
+            return ReadBuffer(buffer, base)
         raise ValueError("Unrecognized storage type {config['type']}")
 
     @property
@@ -171,6 +246,63 @@ class ColumnClient:
         out["function"] = cloudpickle.loads(lz4f.decompress(function))
         return out
 
+    def register_generator(
+        self, function, base_columnset, input_columns, output_columns
+    ):
+        """Probably better put as a member of a ColumnSet class"""
+        if hasattr(function, "name"):
+            generator_name = function.name
+        else:
+            generator_name = function.__name__
+        function_data = lz4f.compress(cloudpickle.dumps(function))
+        function_key = "generator/" + hashlib.sha256(function_data).hexdigest()
+
+        columns = self._api.get("columnsets/" + base_columnset).json()
+        if "_num" not in input_columns:
+            input_columns.append("_num")
+        generator = {
+            "name": generator_name,
+            "input_columns": [
+                c for c in columns["columns"] if c["name"] in input_columns
+            ],
+            "function_key": function_key,
+        }
+        for col in output_columns:
+            col = dict(col)
+            col["generator"] = generator_name
+            col["packoptions"] = {}
+            columns["columns"].append(col)
+        columns["name"] = base_columnset + "-" + generator_name
+
+        res = self._api.post("generators", json=generator)
+        if not res.status_code == 200:
+            raise RuntimeError(res.json()["detail"])
+        res = self._api.post("columnsets", json=columns)
+        if not res.status_code == 200:
+            raise RuntimeError(res.json()["detail"])
+        self.storage[function_key] = function_data
+        return columns["name"]
+
+    def register_filter(self, input_columnset, filter_column):
+        input_columns = [filter_column]
+        output_columns = [
+            {
+                "name": "_num",
+                "dtype": "uint32",
+                "dimension": 0,
+                "doc": "Number of filtered events",
+            }
+        ]
+        for col in self.columns(input_columnset):
+            if col["name"].startswith("_"):
+                continue
+            input_columns.append(col["name"])
+            output_columns.append(col)
+
+        return self.register_generator(
+            NanoFilter(filter_column), input_columnset, input_columns, output_columns
+        )
+
 
 def get_file_metadata(file_lfn: str):
     file = ColumnClient().open_file_metadata(file_lfn)
@@ -203,6 +335,16 @@ def get_file_metadata(file_lfn: str):
             )
         if len(columns) == 0:
             continue
+        columns.append(
+            {
+                "name": "_num",
+                "dtype": "uint32",
+                "dimension": 0,
+                "doc": "Number of events",
+                "generator": "file",
+                "packoptions": {},
+            }
+        )
         columnhash = hashlib.sha256(json.dumps({"columns": columns}).encode())
         info["trees"].append(
             {
@@ -233,11 +375,20 @@ class ColumnHelper(Mapping):
                 str(self._partition["stop"]),
             ]
         )
+        self._num = None
 
     def _key(self, col):
         return "/".join([self._keyprefix, col["generator"], col["name"]])
 
+    @property
+    def num(self):
+        if self._num is None:
+            self._num = int(self["_num"])
+        return self._num
+
     def _file_generator(self, name):
+        if name == "_num":
+            return numpy.array(self._partition["stop"] - self._partition["start"])
         if self._source is None:
             self._source = self._client.open_file(self._partition["lfn"])[
                 self._partition["tree_name"]
@@ -280,9 +431,7 @@ class ColumnHelper(Mapping):
         if col["dimension"] == 2:
             virtualtype = awkward.type.ArrayType(float("inf"), dtype)
         elif col["dimension"] == 1:
-            virtualtype = awkward.type.ArrayType(
-                self._partition["stop"] - self._partition["start"], dtype
-            )
+            virtualtype = awkward.type.ArrayType(self.num, dtype)
         else:
             raise NotImplementedError
         return awkward.VirtualArray(
@@ -295,4 +444,4 @@ class ColumnHelper(Mapping):
         )
 
     def arrays(self):
-        return {k: self.virtual(k) for k in self}
+        return {k: self.virtual(k) for k in self if not k.startswith("_")}
