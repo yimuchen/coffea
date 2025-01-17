@@ -197,7 +197,6 @@ def grow_local_index_to_target_shape(stack):
     stack.append(useable_index)
 
 
-
 def begin_and_end_to_counts_form(begin, end):
     if not begin["class"].startswith("ListOffset"):
         raise RuntimeError
@@ -217,7 +216,6 @@ def begin_and_end_to_counts(stack):
     begin = stack.pop()
 
     stack.append(end - begin)
-
 
 
 @numba.njit
@@ -304,7 +302,6 @@ def index_range_global_index(array, begin, target):
         )
 
 
-
 def nested_local2global(array, target_offsets_raw):
     counts2 = awkward.flatten(awkward.num(array, axis=2), axis=1)
     # flat_index = awkward.values_astype(awkward.flatten(awkward.local_index(array), axis=2),"int64")
@@ -370,7 +367,6 @@ def nested_local2global_form(array_form, target_offsets_form):
     return form
 
 
-
 @numba.njit
 def get_index_ranges_kernel(begin_end, builder):
     for ev in range(len(begin_end)):
@@ -383,6 +379,7 @@ def get_index_ranges_kernel(begin_end, builder):
         builder.end_list()
     return builder
 
+
 def get_index_ranges(begin, end):
     begin_end = awkward.concatenate(
         (begin[:, :, numpy.newaxis], end[:, :, numpy.newaxis]), axis=2
@@ -392,7 +389,6 @@ def get_index_ranges(begin, end):
     offset1 = ranges.layout.offsets
     offset2 = ranges.layout.content.offsets
     return ranges, offset1, offset2
-
 
 
 @numba.jit
@@ -406,6 +402,7 @@ def get_array_from_indices_kernel(indices, target, builder):
             builder.end_list()
         builder.end_list()
     return builder
+
 
 @numba.jit
 def get_array_from_indices_nested_target_kernel(indices, target, builder):
@@ -434,7 +431,6 @@ def get_array_from_indices(indices, target):
         ).snapshot()
     else:
         raise RuntimeError(f"Target array \n\t{target}\n is highly nested.")
-
 
 
 def begin_end_mapping(stack):
@@ -533,7 +529,6 @@ def begin_end_mapping_nested_target_form(begin_form, end_form, target_form):
     return form
 
 
-
 @numba.jit
 def get_array_from_indices_xyzrecord_target_kernel(indices, target, builder):
     for ev in range(len(indices)):
@@ -555,7 +550,6 @@ def get_array_from_indices_xyzrecord_target(indices, target):
     return get_array_from_indices_xyzrecord_target_kernel(
         indices, target, awkward.ArrayBuilder()
     ).snapshot()
-
 
 
 def begin_end_mapping_with_xyzrecord(stack):
@@ -608,7 +602,6 @@ def begin_end_mapping_with_xyzrecord_form(begin_form, end_form, target_form):
     )  # Content
 
     return form
-
 
 
 @numba.njit
@@ -689,7 +682,6 @@ def begin_end_range(stack):
     stack.append(out)
 
 
-
 def global_begin_end_range_form(begin_form, end_form, target_form, offsets_form):
     if not begin_form["class"].startswith("ListOffset"):
         raise RuntimeError
@@ -757,7 +749,6 @@ def global_begin_end_range(stack):
     stack.append(out)
 
 
-
 def counts2nestedindex_form(local_counts, target_offsets):
     if not local_counts["class"].startswith("ListOffset"):
         raise RuntimeError
@@ -793,7 +784,6 @@ def counts2nestedindex(stack):
         awkward.flatten(local_counts),
     )
     stack.append(out)
-
 
 
 @numba.njit
