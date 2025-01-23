@@ -80,8 +80,8 @@ def test_read_nanomc(tests_directory, suffix):
     events = factory.events()
 
     # test after views first
-    genroundtrips(events.GenPart.mask[events.GenPart.eta > 0])
-    genroundtrips(events.mask[ak.any(events.Electron.pt > 50, axis=1)].GenPart)
+    genroundtrips(ak.mask(events.GenPart, events.GenPart.eta > 0))
+    genroundtrips(ak.mask(events, ak.any(events.Electron.pt > 50, axis=1)).GenPart)
     genroundtrips(events.GenPart)
 
     genroundtrips(events.GenPart[events.GenPart.eta > 0])
