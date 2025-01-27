@@ -40,7 +40,7 @@ def test_lumidata():
         pyruns = ld._lumidata[:, 0].astype("u4")
         pylumis = ld._lumidata[:, 1].astype("u4")
         LumiData._build_lumi_table_kernel.py_func(
-            pyruns, pylumis, ld._lumidata, py_index
+            pyruns, pylumis, ld._lumidata[:, 2], py_index
         )
 
         assert len(py_index) == len(ld.index)
