@@ -81,22 +81,24 @@ class FCCSchema(BaseSchema):
 
     __dask_capable__ = True
 
-    mixins_dictionary = {
-        "Electron": "ReconstructedParticle",
-        "Muon": "ReconstructedParticle",
-        "AllMuon": "ReconstructedParticle",
-        "EFlowNeutralHadron": "Cluster",
-        "Particle": "MCParticle",
-        "Photon": "ReconstructedParticle",
-        "ReconstructedParticles": "ReconstructedParticle",
-        "EFlowPhoton": "Cluster",
-        "MCRecoAssociations": "RecoMCParticleLink",
-        "MissingET": "ReconstructedParticle",
-        "ParticleIDs": "ParticleID",
-        "Jet": "ReconstructedParticle",
-        "EFlowTrack": "Track",
-        "*idx": "ObjectID",
-    }
+    # mixins_dictionary = {
+    #     "Electron": "ReconstructedParticle",
+    #     "Muon": "ReconstructedParticle",
+    #     "AllMuon": "ReconstructedParticle",
+    #     "EFlowNeutralHadron": "Cluster",
+    #     "Particle": "MCParticle",
+    #     "Photon": "ReconstructedParticle",
+    #     "ReconstructedParticles": "ReconstructedParticle",
+    #     "EFlowPhoton": "Cluster",
+    #     "MCRecoAssociations": "RecoMCParticleLink",
+    #     "MissingET": "ReconstructedParticle",
+    #     "ParticleIDs": "ParticleID",
+    #     "Jet": "ReconstructedParticle",
+    #     "EFlowTrack": "Track",
+    #     "*idx": "ObjectID",
+    # }
+
+    extra_mixins = {"*idx": "ObjectID",}
 
     _momentum_fields_e = {
         "energy": "E",
@@ -131,10 +133,50 @@ class FCCSchema(BaseSchema):
     mc_relations = {"parents": "Particle#0.index", "daughters": "Particle#1.index"}
 
     def __init__(self, base_form, version="latest"):
+        # print('all_keys base\n', base_form.keys())
         super().__init__(base_form)
+        # print("base_form.keys()")
+        # print(base_form.keys())
+        # print("base_form['typenames']")
+        # print(base_form['typenames'])
+
+        self._create_mixin(base_form['typenames'])
+
         self._form["fields"], self._form["contents"] = self._build_collections(
             self._form["fields"], self._form["contents"]
         )
+
+    def _create_mixin(self, typenames):
+
+        all_collections = {
+            collection_name.split("/")[0]
+            for collection_name in self._form["fields"]
+            if _all_collections.match(collection_name)
+        }
+
+        collections = {
+            collection_name
+            for collection_name in all_collections
+            if not _idxs.match(collection_name)
+            and not _trailing_under.match(collection_name)
+        }
+
+        mixins = {}
+
+        for name in collections:
+            datatype = typenames.get(name, "NanoCollection")
+            if datatype.startswith(r"vector<edm4hep::"):
+                if datatype.endswith("Data>"):
+                    mixins[name] = datatype.split('::')[-1][:-5]
+                else:
+                    raise RuntimeError('Unknown datatype:', datatype)
+            else:
+                mixins[name] = datatype
+
+        mixins_dictionary = {**mixins, **self.extra_mixins}
+
+        # print(mixins_dictionary)
+        self.mixins_dictionary = mixins_dictionary
 
     def _idx_collections(self, output, branch_forms, all_collections):
         """
@@ -541,6 +583,8 @@ class FCCSchema(BaseSchema):
         """
         branch_forms = {k: v for k, v in zip(field_names, input_contents)}
 
+        # print('\nINIT\n')
+        # print(branch_forms)
         # All collection names
         # Example: ReconstructedParticles
         all_collections = {
@@ -580,7 +624,8 @@ class FCCSchema(BaseSchema):
 
         # sort the output by key
         output = sort_dict(output)
-
+        # print('\nFIN\n')
+        # print(output)
         return output.keys(), output.values()
 
     @classmethod

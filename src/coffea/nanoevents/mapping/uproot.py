@@ -166,6 +166,8 @@ class UprootSourceMapping(BaseSourceMapping):
                 )
                 continue
             branch_forms[key] = form
+
+        # print('\n_extract_base_form is called\n')
         return {
             "class": "RecordArray",
             "contents": [item for item in branch_forms.values()],

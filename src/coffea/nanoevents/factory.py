@@ -129,6 +129,8 @@ class _map_schema_uproot(_map_schema_base):
             },
             "form_key": None,
         }
+        # print('132 factory form\n\n', form.to_dict().keys())
+        # print('132 factory lform\n\n', lform.keys())
         return (
             awkward.forms.form.from_dict(self.schemaclass(lform, self.version).form),
             self,
@@ -372,6 +374,9 @@ class NanoEventsFactory:
         else:
             tree = uproot.open(file, **uproot_options)
 
+        # Get the typenames
+        typenames = tree.typenames()
+
         if entry_start is None or entry_start < 0:
             entry_start = 0
         if entry_stop is None or entry_stop > tree.num_entries:
@@ -396,6 +401,8 @@ class NanoEventsFactory:
         base_form = mapping._extract_base_form(
             tree, iteritems_options=iteritems_options
         )
+        base_form['typenames'] = typenames
+        # print('\nline 400\n',base_form.keys())
 
         return cls._from_mapping(
             mapping,
