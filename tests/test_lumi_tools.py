@@ -191,6 +191,10 @@ def test_1259_avoid_pickle_numba_dict():
         total_lumi += my_lumidata.get_lumi(my_lumilist)
         return total_lumi
 
+    noclient_output = dask.compute(count_lumi(runs, lumis))[0]
+
     with Client() as _:
         output = count_lumi(runs, lumis)
-        dask.compute(output)[0]
+        client_output = dask.compute(output)[0]
+
+    assert noclient_output == client_output
