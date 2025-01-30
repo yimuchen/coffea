@@ -140,13 +140,28 @@ class FCCSchema(BaseSchema):
         # print("base_form['typenames']")
         # print(base_form['typenames'])
 
-        self._create_mixin(base_form['typenames'])
+        self._create_mixin(base_form)
 
         self._form["fields"], self._form["contents"] = self._build_collections(
             self._form["fields"], self._form["contents"]
         )
 
-    def _create_mixin(self, typenames):
+    def _create_mixin(self, base_form):
+
+        eager_mode_typenames = base_form.get("typenames",None)
+        if eager_mode_typenames is None:
+            # Dask mode has typename stored in each branch
+            # Collect all those typenames into a single dictionary
+            collected_branch_typenames = {}
+            for name, form in zip(self._form["fields"],self._form["contents"]):
+                # print("Branch Name : ", name)
+                # print(f"\nBranch_form :\n{form}\n\n")
+                matched = form["parameters"].get("typename","unknown")
+                collected_branch_typenames[name] = matched
+                # print(f"\nMatched_typename :\n{matched}\n\n")
+            typenames = collected_branch_typenames
+        else:
+            typenames = eager_mode_typenames
 
         all_collections = {
             collection_name.split("/")[0]
