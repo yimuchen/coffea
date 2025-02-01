@@ -256,7 +256,7 @@ def test_xgboost():
     # Should only load required columns
     columns = set(list(dak.necessary_columns(dak_res).values())[0])
     assert columns == set(feature_list)
-    
+
     # Length 0 testing, xgboost always handles 0-length arrays elegantly
     ak_res = xgb_wrap(ak_events[ak_events.feat0 < 0])
     dak_res = xgb_wrap(dak_events[dak_events.feat0 < 0])

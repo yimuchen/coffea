@@ -16,7 +16,7 @@ class tf_wrapper(nonserializable_attribute, numpy_call_wrapper):
     Wrapper for running tensorflow inference with awkward/dask-awkward inputs.
     """
 
-    def __init__(self, tf_model: str, skip_length_zero:bool = False):
+    def __init__(self, tf_model: str, skip_length_zero: bool = False):
         """
         As models are not guaranteed to be directly serializable, the use will
         need to pass the model as files saved using the `tf.keras.save` method
@@ -27,7 +27,7 @@ class tf_wrapper(nonserializable_attribute, numpy_call_wrapper):
         [1]
         https://www.tensorflow.org/guide/keras/serialization_and_saving#saving
 
-        Parameters 
+        Parameters
         ----------
 
         tf_model:
