@@ -49,7 +49,9 @@ class torch_wrapper(nonserializable_attribute, numpy_call_wrapper):
             In case a length-0 inputs is detected and this value is not None,
             the wrapper will return the length-0 numpy array of the same shape,
             as there are methods in torch that is incompatible with length-0
-            inputs.
+            inputs. Note that the leading entry in shape should be None to
+            indicate that the outer-most dimension is arbitrary. It will always
+            be ignored in the operation.
     """
 
     def __init__(
@@ -107,7 +109,7 @@ class torch_wrapper(nonserializable_attribute, numpy_call_wrapper):
         Evaluating the numpy inputs via the model. Returning the results also as
         as numpy array.
         """
-        first_arg = args[0] if len(args) else next(args in kwargs.values())
+        first_arg = args[0] if len(args) else next(iter(kwargs.values()))
         if len(first_arg) == 0 and self.expected_output_shape is not None:
             return numpy.zeros(shape=(0, *self.expected_output_shape[1:]))
 
