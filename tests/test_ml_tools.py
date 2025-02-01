@@ -70,7 +70,10 @@ def common_prepare_awkward(jets):
         },
     }
 
-    return {k: ak.concatenate([x[:, np.newaxis, :] for x in fmap[k].values()], axis=1) for k in fmap.keys()}
+    return {
+        k: ak.concatenate([x[:, np.newaxis, :] for x in fmap[k].values()], axis=1)
+        for k in fmap.keys()
+    }
 
 
 def test_triton():
@@ -91,7 +94,9 @@ def test_triton():
     # Running the evaluation in lazy and non-lazy forms
     tw = triton_wrapper_test(
         model_url="triton+grpc://localhost:8001/pn_test/1",
-        client_args=dict(ssl=False),  # Solves SSL version mismatch for local inference server
+        client_args=dict(
+            ssl=False
+        ),  # Solves SSL version mismatch for local inference server
     )
 
     ak_jets, dak_jets = prepare_jets_array(njets=256)
@@ -154,7 +159,7 @@ def test_torch():
     # Length-0 testing
     tw = torch_wrapper_test("tests/samples/pn_demo.pt", expected_output_shape=(None,))
     ak_jets, dak_jets = prepare_jets_array(njets=256)
-    ak_jets = ak_jets[ak_jets.eta < -100] # Mimicking a low efficiency selection
+    ak_jets = ak_jets[ak_jets.eta < -100]  # Mimicking a low efficiency selection
     dak_jets = dak_jets[dak_jets.eta < -100]
     ak_res, dak_res = tw(ak_jets), tw(dak_jets)
     assert len(ak_jets) == 0 and len(dak_res.compute()) == 0
@@ -224,13 +229,17 @@ def test_xgboost():
 
     class xgboost_test(xgboost_wrapper):
         def prepare_awkward(self, events):
-            ret = ak.concatenate([events[name][:, np.newaxis] for name in feature_list], axis=1)
+            ret = ak.concatenate(
+                [events[name][:, np.newaxis] for name in feature_list], axis=1
+            )
             return [], dict(data=ret)
 
     xgb_wrap = xgboost_test("tests/samples/xgboost_example.xgb")
 
     # Dummy 1000 event array with 20 feature branches
-    ak_events = ak.zip({f"feat{i}": ak.from_numpy(np.random.random(size=1_000)) for i in range(20)})
+    ak_events = ak.zip(
+        {f"feat{i}": ak.from_numpy(np.random.random(size=1_000)) for i in range(20)}
+    )
     ak.to_parquet(ak_events, "ml_tools.xgboost.parquet")
     dak_events = dak.from_parquet("ml_tools.xgboost.parquet")
 
