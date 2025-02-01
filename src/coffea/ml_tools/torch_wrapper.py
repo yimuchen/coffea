@@ -52,7 +52,9 @@ class torch_wrapper(nonserializable_attribute, numpy_call_wrapper):
             inputs.
     """
 
-    def __init__(self, torch_jit: str, expected_output_shape: Optional[Tuple[int]] = None):
+    def __init__(
+        self, torch_jit: str, expected_output_shape: Optional[Tuple[int]] = None
+    ):
         if _torch_import_error is not None:
             warnings.warn(
                 "Users should make sure the torch package is installed before proceeding!\n"
@@ -66,8 +68,13 @@ class torch_wrapper(nonserializable_attribute, numpy_call_wrapper):
         nonserializable_attribute.__init__(self, ["model", "device"])
         self.torch_jit = torch_jit
         self.expected_output_shape = expected_output_shape
-        if self.expected_output_shape is not None and self.expected_output_shape[0] is not None:
-            warnings.warn("The outermost dimension will ignored for fallback situations, set leading dimension to None to avoid seeing this.")
+        if (
+            self.expected_output_shape is not None
+            and self.expected_output_shape[0] is not None
+        ):
+            warnings.warn(
+                "The outermost dimension will ignored for fallback situations, set leading dimension to None to avoid seeing this."
+            )
 
     def _create_device(self):
         """
