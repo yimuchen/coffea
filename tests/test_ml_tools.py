@@ -215,6 +215,10 @@ def test_tensorflow():
     expected_columns = {"ncands"} | {f"pfcands.feat{i}" for i in range(1, 19)}
     columns = set(list(dak.necessary_columns(dak_res).values())[0])
     assert columns == expected_columns
+
+    # TODO: - Length 0 testing. The current tensorflow module used for testing
+    # just happens to require explicit unflattening to get the correct shape
+
     client.close()
 
 
@@ -252,4 +256,10 @@ def test_xgboost():
     # Should only load required columns
     columns = set(list(dak.necessary_columns(dak_res).values())[0])
     assert columns == set(feature_list)
+    
+    # Length 0 testing, xgboost always handles 0-length arrays elegantly
+    ak_res = xgb_wrap(ak_events[ak_events.feat0 < 0])
+    dak_res = xgb_wrap(dak_events[dak_events.feat0 < 0])
+    assert len(ak_res) == 0 and len(dak_res.compute()) == 0
+
     client.close()
