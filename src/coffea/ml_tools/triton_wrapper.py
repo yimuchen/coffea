@@ -133,20 +133,11 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
             for x in self.model_metadata["inputs"]
         }
 
-    def _create_model_outputs(self)->Dict[str,Dict]:
+    def _create_model_outputs(self) -> Dict[str, Dict]:
         """
         Extracting the model output data format.
         """
-        return {
-            x["name"] : {
-                "shape": type(int(i)) for i in x["shape"]
-            }
-            for x in self.model_metadata["output"]
-        }
-
-    def _create_model_outputs(self) -> List[int]:
-        """Getting a list of names of possible outputs"""
-        return [x["name"] for x in self.model_metadata["outputs"]]
+        return {x["name"]: {"shape": tuple(int(i) for i in x["shape"])} for x in self.model_metadata["outputs"]}
 
     @property
     def batch_size(self) -> int:
@@ -156,19 +147,14 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
         configuration hosted on the server.
         """
         if self._batch_size < 0:
-            model_config = self.client.get_model_config(
-                self.model, self.version, as_json=True
-            )["config"]
+            model_config = self.client.get_model_config(self.model, self.version, as_json=True)["config"]
             if "dynamic_batching" in model_config:
-                self._batch_size = model_config["dynamic_batching"][
-                    "preferred_batch_size"
-                ][0]
+                self._batch_size = model_config["dynamic_batching"]["preferred_batch_size"][0]
             elif "max_batch_size" in model_config:
                 self._batch_size = model_config["max_batch_size"]
             else:
                 warnings.warn(
-                    f"Batch size not set by model! Setting to default value {self.batch_size_fallback}. "
-                    "Contact model maintainer to check if this is expected",
+                    f"Batch size not set by model! Setting to default value {self.batch_size_fallback}. Contact model maintainer to check if this is expected",
                     UserWarning,
                 )
                 self._batch_size = self.batch_size_fallback
@@ -325,18 +311,12 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
                 outputs=infer_outputs,
             )
             if output is None:
-                output = {
-                    o: request.as_numpy(o)[start_idx:stop_idx] for o in output_list
-                }
+                output = {o: request.as_numpy(o)[start_idx:stop_idx] for o in output_list}
             else:
                 for o in output_list:
-                    output[o] = numpy.concatenate(
-                        (output[o], request.as_numpy(o)), axis=0
-                    )
-        
-        if output is None: # Input was a length-0, so we should generate the length-0 outputs with correct dimension
-            
-            return {
-                    o: numpy.zero(shape=(0, *self.model_output[o]["shape"][1:])) for o in output_list}
+                    output[o] = numpy.concatenate((output[o], request.as_numpy(o)), axis=0)
+
+        if output is None:  # Input was a length-0, so we should generate the length-0 outputs with correct dimension
+            return {o: numpy.zeros(shape=(0, *self.model_outputs[o]["shape"][1:])) for o in output_list}
 
         return {k: v[:orig_len] for k, v in output.items()}
