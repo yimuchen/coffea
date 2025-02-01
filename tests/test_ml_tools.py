@@ -123,7 +123,7 @@ def test_triton():
     ak_res = tw(["output"], ak_jets[ak_jets.eta < 0])
     dak_res = tw(["output"], dak_jets[dak_jets.eta < 0])
     for k in ak_res.keys():
-        assert len(ak_res[k]) == 0 and len(dak_res[k].compute())==0
+        assert len(ak_res[k]) == 0 and len(dak_res[k].compute()) == 0
 
     client.close()
 
