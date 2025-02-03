@@ -289,7 +289,9 @@ _set_repr_name("MCRecoParticleAssociation")
 
 MCRecoParticleAssociationArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
 MCRecoParticleAssociationArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
-MCRecoParticleAssociationArray.ProjectionClass4D = MCRecoParticleAssociationArray  # noqa: F821
+MCRecoParticleAssociationArray.ProjectionClass4D = (  # noqa: F821
+    MCRecoParticleAssociationArray  # noqa: F821  # noqa: F821
+)
 MCRecoParticleAssociationArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
 
 

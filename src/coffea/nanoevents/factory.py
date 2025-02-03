@@ -401,7 +401,7 @@ class NanoEventsFactory:
         base_form = mapping._extract_base_form(
             tree, iteritems_options=iteritems_options
         )
-        base_form['typenames'] = typenames
+        base_form["typenames"] = typenames
         # print('\nline 400\n',base_form.keys())
 
         return cls._from_mapping(

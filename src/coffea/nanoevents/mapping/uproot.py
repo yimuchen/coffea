@@ -94,7 +94,7 @@ def _lazify_parameters(form_parameters, docstr=None):
         parameters["__array__"] = form_parameters["__array__"]
     if docstr is not None:
         parameters["__doc__"] = docstr
-    if 'typename' in form_parameters:
+    if "typename" in form_parameters:
         parameters["typename"] = form_parameters["typename"]
     return parameters
 

@@ -1,8 +1,9 @@
 import copy
 import re
 import warnings
-import numpy
 from difflib import SequenceMatcher
+
+import numpy
 
 from coffea.nanoevents import transforms
 from coffea.nanoevents.methods import vector
@@ -39,43 +40,42 @@ def parse_Members_and_Relations(Members_and_Relation_List, target_text=False):
     return parsed
 
 
-from coffea.nanoevents.assets import edm4hep
+# from coffea.nanoevents.assets import edm4hep
+from coffea.nanoevents.assets import edm4hep_ver
 
-# with open("coffea/nanoevents/assets/edm4hep.yaml") as f:
-#     edm4hep = yaml.safe_load(f)
 
-parsed_edm4hep = copy.deepcopy(edm4hep)
-for key in edm4hep.keys():
-    if not isinstance(edm4hep[key], dict):
-        continue
-    for subkey in edm4hep[key].keys():
-        if not isinstance(edm4hep[key][subkey], dict):
+def process_further(loaded_dict, parsed_dict):
+    for key in loaded_dict.keys():
+        if not isinstance(loaded_dict[key], dict):
             continue
-        for subsubkey in edm4hep[key][subkey].keys():
-            if subsubkey in ["Members", "VectorMembers"]:
-                parsed_edm4hep[key][subkey][subsubkey] = parse_Members_and_Relations(
-                    edm4hep[key][subkey][subsubkey]
-                )
-            elif subsubkey in ["OneToOneRelations", "OneToManyRelations"]:
-                parsed_edm4hep[key][subkey][subsubkey] = parse_Members_and_Relations(
-                    edm4hep[key][subkey][subsubkey], target_text=True
-                )
-
-
-# Add extra datatypes
-parsed_edm4hep["datatypes"]["edm4hep::ObjectID"] = (
-    {  # Actually from podio, but, for parsing compatibility, keep as edm4hep
-        "Description": "The Monte Carlo particle - based on the lcio::MCParticle.",
-        "Author": "Prayag Yadav",
-        "Members": {
-            "index": {"type": "int64", "doc": "indices to the target collection"},
-            "collectionID": {
-                "type": "int64",
-                "doc": "indices to the target collection",
+        for subkey in loaded_dict[key].keys():
+            if not isinstance(loaded_dict[key][subkey], dict):
+                continue
+            for subsubkey in loaded_dict[key][subkey].keys():
+                if subsubkey in ["Members", "VectorMembers"]:
+                    parsed_dict[key][subkey][subsubkey] = parse_Members_and_Relations(
+                        loaded_dict[key][subkey][subsubkey]
+                    )
+                elif subsubkey in ["OneToOneRelations", "OneToManyRelations"]:
+                    parsed_dict[key][subkey][subsubkey] = parse_Members_and_Relations(
+                        loaded_dict[key][subkey][subsubkey], target_text=True
+                    )
+    # Add extra datatypes
+    parsed_dict["datatypes"]["edm4hep::ObjectID"] = (
+        {  # Actually from podio, but, for parsing compatibility, keep as edm4hep
+            "Description": "The Monte Carlo particle - based on the lcio::MCParticle.",
+            "Author": "Prayag Yadav",
+            "Members": {
+                "index": {"type": "int64", "doc": "indices to the target collection"},
+                "collectionID": {
+                    "type": "int64",
+                    "doc": "indices to the target collection",
+                },
             },
-        },
-    }
-)
+        }
+    )
+    return parsed_dict
+
 
 # Collection Regex #
 # Any branch name with a forward slash '/'
@@ -93,90 +93,96 @@ _vector_members = re.compile(r"^_[^/]*$")
 
 __dask_capable__ = True
 
+
 def generate_collection_info_from_branches(branch_forms):
     all_collections = {
-            collection_name.split("/")[0]
-            for collection_name in branch_forms.keys()
-            if _all_collections.match(collection_name)
-        }
+        collection_name.split("/")[0]
+        for collection_name in branch_forms.keys()
+        if _all_collections.match(collection_name)
+    }
     collections = {}
     for name in all_collections:
         # skip Links, because they all look the same with same branches, so can't really compare them
-        if name.endswith('Link'):
+        if name.endswith("Link"):
             continue
-        if name.startswith('_'):
+        if name.startswith("_"):
             continue
         # Gather
-        collections[name] = {'relations':[]}
+        collections[name] = {"relations": []}
         for other_name in all_collections:
-            if other_name.startswith('_'+name+'_'):
-                collections[name]['relations'].append(other_name[2+len(name):])
-        list_relations = collections[name]['relations']
-        collections[name]['relations'] = set(list_relations)
+            if other_name.startswith("_" + name + "_"):
+                collections[name]["relations"].append(other_name[2 + len(name) :])
+        list_relations = collections[name]["relations"]
+        collections[name]["relations"] = set(list_relations)
 
     for name in collections.keys():
         # Gather members
         members = {
-                collection_name.split("/")[-1].split(".")[1].split('[')[0]
-                for collection_name in branch_forms.keys()
-                if _all_collections.match(collection_name) and collection_name.split("/")[0] == name
+            collection_name.split("/")[-1].split(".")[1].split("[")[0]
+            for collection_name in branch_forms.keys()
+            if _all_collections.match(collection_name)
+            and collection_name.split("/")[0] == name
         }
 
-        collections[name]['members'] = {
+        collections[name]["members"] = {
             name
             for name in members
-            if (not name.endswith('_begin')) and (not name.endswith('_end'))
+            if (not name.endswith("_begin")) and (not name.endswith("_end"))
         }
         # Gather vector members
         vector_members = {
-                branch_name.split("_")[-1]
-                for branch_name in branch_forms.keys()
-                if _vector_members.match(branch_name) and branch_name.startswith("_"+name)
+            branch_name.split("_")[-1]
+            for branch_name in branch_forms.keys()
+            if _vector_members.match(branch_name) and branch_name.startswith("_" + name)
         }
         collections[name]["vector_members"] = vector_members
     return collections
 
+
 def generate_collection_info_from_yaml(parsed_dict):
     out = {}
-    datatypes = parsed_dict['datatypes']
+    datatypes = parsed_dict["datatypes"]
     for datatype in datatypes.keys():
         # skip Links, because they all look the same with same branches, so can't really compare them
-        if datatype.endswith('Link'):
+        if datatype.endswith("Link"):
             continue
 
-        members = set(datatypes[datatype]['Members'].keys())
+        members = set(datatypes[datatype]["Members"].keys())
         vector_members = set()
-        if not datatypes[datatype].get('VectorMembers', None) is None:
-            vector_members = set(datatypes[datatype]['VectorMembers'].keys())
+        if datatypes[datatype].get("VectorMembers", None) is not None:
+            vector_members = set(datatypes[datatype]["VectorMembers"].keys())
         OneToOneRelations = set()
-        if not datatypes[datatype].get('OneToOneRelations', None) is None:
-            OneToOneRelations = set(datatypes[datatype]['OneToOneRelations'].keys())
+        if datatypes[datatype].get("OneToOneRelations", None) is not None:
+            OneToOneRelations = set(datatypes[datatype]["OneToOneRelations"].keys())
         OneToManyRelations = set()
-        if not datatypes[datatype].get('OneToManyRelations', None) is None:
-            OneToManyRelations = set(datatypes[datatype]['OneToManyRelations'].keys())
+        if datatypes[datatype].get("OneToManyRelations", None) is not None:
+            OneToManyRelations = set(datatypes[datatype]["OneToManyRelations"].keys())
         relations = OneToOneRelations.union(OneToManyRelations)
 
         out[datatype] = {
-            'members': members,
-            'vector_members': vector_members,
-            'relations': relations
+            "members": members,
+            "vector_members": vector_members,
+            "relations": relations,
         }
         # Do a check if a vector member has an 'edm4hep' type
         # because, then, the vector member info is saved like a one to many relation in the underscored branches
         # So copy that vector member to relations instead, to facilitate comparisons
         for member in copy.copy(vector_members):
-            type_of_the_vector_member = datatypes[datatype]['VectorMembers'][member]['type']
-            if type_of_the_vector_member.startswith('edm4hep::'):
+            type_of_the_vector_member = datatypes[datatype]["VectorMembers"][member][
+                "type"
+            ]
+            if type_of_the_vector_member.startswith("edm4hep::"):
                 # Move this vector member to the relations
-                out[datatype]['vector_members'].remove(member)
-                out[datatype]['relations'].add(member)
+                out[datatype]["vector_members"].remove(member)
+                out[datatype]["relations"].add(member)
 
     return out
 
+
 def match_collection_to_datatype(branch_forms, edm4hep_dict):
-    '''
+    """
     The idea is to check if all the branch names (along with relations) are exactly the same as described in the edm4hep.yaml.
-    '''
+    """
 
     from_root_file = generate_collection_info_from_branches(branch_forms)
     from_yaml_file = generate_collection_info_from_yaml(edm4hep_dict)
@@ -185,28 +191,33 @@ def match_collection_to_datatype(branch_forms, edm4hep_dict):
     for collection_name in from_root_file.keys():
         for datatype in from_yaml_file.keys():
             if from_root_file[collection_name] == from_yaml_file[datatype]:
-                mixin_match[collection_name] = datatype.split('::')[-1]
+                mixin_match[collection_name] = datatype.split("::")[-1]
 
     # Matching links is tough, because they all have the same branch names
     # Here is a hacky attempt to match them
     # Best string match
     all_link_collections = {
-            collection_name.split("/")[0]
-            for collection_name in branch_forms.keys()
-            if (_all_collections.match(collection_name)) and (not collection_name.startswith('_')) and ('Link' in collection_name.split("/")[0])
-        }
+        collection_name.split("/")[0]
+        for collection_name in branch_forms.keys()
+        if (_all_collections.match(collection_name))
+        and (not collection_name.startswith("_"))
+        and ("Link" in collection_name.split("/")[0])
+    }
     link_datatypes = {
-        name.split('::')[-1]
-        for name in parsed_edm4hep['datatypes'].keys()
-        if name.endswith('Link')
+        name.split("::")[-1]
+        for name in edm4hep_dict["datatypes"].keys()
+        if name.endswith("Link")
     }
     for link in all_link_collections:
         similarities = []
         for datatype in link_datatypes:
-            similarities.append(SequenceMatcher(None, link, datatype).ratio()) # returns a value that quantifies the similarity between the two strings
+            similarities.append(
+                SequenceMatcher(None, link, datatype).ratio()
+            )  # returns a value that quantifies the similarity between the two strings
         best_match_index = numpy.argmax(numpy.array(similarities))
         mixin_match[link] = list(link_datatypes)[best_match_index]
     return mixin_match
+
 
 def sort_dict(d):
     """Sort a dictionary by key"""
@@ -219,6 +230,9 @@ class EDM4HEPSchema(BaseSchema):
     """
 
     __dask_capable__ = True
+
+    # Latest (default) edm4hep_version
+    edm4hep_version = "00-99-01"
 
     # EDM4HEP components mixins
     _components_mixins = {
@@ -235,15 +249,15 @@ class EDM4HEPSchema(BaseSchema):
         "covMatrix6f": "covMatrix",
     }
 
-    # EDM4HEP datatype mixins
-    _datatype_mixins = {  # Example {'TrackCollection' : 'Track', 'MCParticleCollection':'MCParticleCollection', etc}
-        name.split("::")[1] + "Collection": name.split("::")[1]
-        for name in parsed_edm4hep["datatypes"].keys()
-        if name.split("::")[1] != "EventHeader"
-    }
-    _datatype_mixins["EventHeader"] = "EventHeader"
+    # # EDM4HEP datatype mixins
+    # _datatype_mixins = {  # Example {'TrackCollection' : 'Track', 'MCParticleCollection':'MCParticleCollection', etc}
+    #     name.split("::")[1] + "Collection": name.split("::")[1]
+    #     for name in self.parsed_edm4hep["datatypes"].keys()
+    #     if name.split("::")[1] != "EventHeader"
+    # }
+    # _datatype_mixins["EventHeader"] = "EventHeader"
 
-
+    extra_mixins = {"*idx": "ObjectID"}
 
     _momentum_fields_e = {
         "energy": "E",
@@ -261,11 +275,79 @@ class EDM4HEPSchema(BaseSchema):
 
     def __init__(self, base_form, *args, **kwargs):
         super().__init__(base_form)
-        # branch_forms = {k: v for k, v in zip(self._form["fields"], self._form["contents"])}
-        # self._datatype_mixins = match_collection_to_datatype(branch_forms, parsed_edm4hep)
+
+        # Detect Collection Datatypes and create a datatype mixin
+        self.edm4hep = edm4hep_ver[self.edm4hep_version]
+        self.parsed_edm4hep = process_further(self.edm4hep, copy.deepcopy(self.edm4hep))
+        self._create_mixin(base_form)
+
         self._form["fields"], self._form["contents"] = self._build_collections(
             self._form["fields"], self._form["contents"]
         )
+
+    @classmethod
+    def version(cls, ver="latest"):
+        match ver:
+            case "latest":
+                return EDM4HEPSchema
+            case "00.99.01":
+                return EDM4HEPSchema
+            case "00.99.00":
+                return EDM4HEPSchema_v00_99_00
+            case "00.10.05":
+                return EDM4HEPSchema_v00_10_05
+            case "00.10.04":
+                return EDM4HEPSchema_v00_10_04
+            case "00.10.03":
+                return EDM4HEPSchema_v00_10_03
+            case "00.10.02":
+                return EDM4HEPSchema_v00_10_02
+            case "00.10.01":
+                return EDM4HEPSchema_v00_10_01
+
+    def _create_mixin(self, base_form):
+        """Extract mixin dictionary from typename info"""
+        eager_mode_typenames = base_form.get("typenames", None)
+        if eager_mode_typenames is None:
+            # Dask mode has typename stored in each branch
+            # Collect all those typenames into a single dictionary
+            collected_branch_typenames = {}
+            for name, form in zip(self._form["fields"], self._form["contents"]):
+                matched = form["parameters"].get("typename", "unknown")
+                collected_branch_typenames[name] = matched
+            typenames = collected_branch_typenames
+        else:
+            typenames = eager_mode_typenames
+
+        all_collections = {
+            collection_name.split("/")[0]
+            for collection_name in self._form["fields"]
+            if _all_collections.match(collection_name)
+        }
+
+        collections = {
+            collection_name
+            for collection_name in all_collections
+            if not collection_name.startswith("_")
+        }
+
+        mixins = {}
+
+        for name in collections:
+            datatype = typenames.get(name, "NanoCollection")
+            if datatype.startswith(r"vector<edm4hep::"):
+                if datatype.endswith("Data>"):
+                    mixins[name] = datatype.split("::")[-1][:-5]
+                else:
+                    raise RuntimeError("Unknown datatype:", datatype)
+            elif datatype.startswith(r"vector<podio::"):
+                mixins[name] = datatype.split("::")[-1][:-1]
+            else:
+                mixins[name] = datatype
+
+        mixins_dictionary = {**mixins, **self.extra_mixins}
+
+        self._datatype_mixins = mixins_dictionary
 
     def _zip_components(self, collection_name, component_branches, branch_forms):
         """
@@ -293,7 +375,6 @@ class EDM4HEPSchema(BaseSchema):
                 continue  # Used to create 4 vector for the whole collection, later.
             if var.split("@")[1] == "unknown":
                 continue
-            # component_name = var.split("@")[1].split("::")[1]
 
             to_zip_raw = {
                 item["branch_subvar"]: branch_forms.pop(item["name"])
@@ -324,11 +405,11 @@ class EDM4HEPSchema(BaseSchema):
         datatype = self._datatype_mixins.get(collection_name, None)
         if collection_name.startswith("_"):
             col_name = collection_name[1:].split("_")[0]
-            subcol_name = collection_name[1:].split("_")[1]
+            subcol_name = collection_name[1:].split("_")[-1]
             datatype = self._datatype_mixins.get(col_name, None)
         if datatype is None:
             raise FileNotFoundError(f"No datatype found for {collection_name}!")
-        collection_edm4hep = parsed_edm4hep["datatypes"]["edm4hep::" + datatype]
+        collection_edm4hep = self.parsed_edm4hep["datatypes"]["edm4hep::" + datatype]
         Members = collection_edm4hep.get("Members", {})
         VectorMembers = collection_edm4hep.get("VectorMembers", {})
         OneToOneRelations = collection_edm4hep.get("OneToOneRelations", {})
@@ -343,7 +424,7 @@ class EDM4HEPSchema(BaseSchema):
             matched_subcol = composite_dict.get(
                 subcol_name, {"type": "unknown", "doc": "unknown"}
             )
-            components_edm4hep = parsed_edm4hep["components"].get(
+            components_edm4hep = self.parsed_edm4hep["components"].get(
                 matched_subcol["type"], {"Members": {}}
             )["Members"]
             composite_dict = {**composite_dict, **components_edm4hep}
@@ -422,7 +503,7 @@ class EDM4HEPSchema(BaseSchema):
         branch_forms = _process(branch_forms, all_collections)
         branch_forms = _process(
             branch_forms, all_collections
-        )  # Doing it twice to deal with nested components if at all present
+        )  # Doing it twice to deal with nested components, if at all present
 
         return branch_forms
 
@@ -440,7 +521,7 @@ class EDM4HEPSchema(BaseSchema):
             datatype = self._datatype_mixins.get(collection, None)
             if datatype is None:
                 continue
-            vec_members = parsed_edm4hep["datatypes"]["edm4hep::" + datatype].get(
+            vec_members = self.parsed_edm4hep["datatypes"]["edm4hep::" + datatype].get(
                 "VectorMembers", None
             )
             if vec_members is None:
@@ -522,17 +603,12 @@ class EDM4HEPSchema(BaseSchema):
         for collection in all_collections:
             if collection.startswith("_"):
                 continue
-            # branch_var = {
-            #     name.split("/")[1].split(".")[1]: branch_forms[name]
-            #     for name in fieldnames
-            #     if (name.split("/")[0] == collection) and (len(name.split("/")) > 1)
-            # }
             datatype = self._datatype_mixins.get(collection, None)
             if datatype is None:
                 continue
-            OneToOneRelations = parsed_edm4hep["datatypes"]["edm4hep::" + datatype].get(
-                "OneToOneRelations", None
-            )
+            OneToOneRelations = self.parsed_edm4hep["datatypes"][
+                "edm4hep::" + datatype
+            ].get("OneToOneRelations", None)
             if OneToOneRelations is None:
                 continue
             for member in OneToOneRelations.keys():
@@ -560,9 +636,10 @@ class EDM4HEPSchema(BaseSchema):
                         if "edm4hep::" + datatype == target_datatype
                     ]
                     # Potential Bug: What if there are more than one collections with the same datatype
-                    # Since We can't the collection ID from the events branch, truly matching collections
+                    # Since We can't get the collection ID from the events branch, truly matching collections
                     # seems impossible here
                     # For now, lets add the relation to all the matched collections
+                    # One can provide the priority with the self._datatype_priority dictionary
                     if len(matched_collections) == 0:
                         warnings.warn(
                             f"No matched collection for {target_datatype} found!\n skipping ..."
@@ -571,7 +648,7 @@ class EDM4HEPSchema(BaseSchema):
                     for matched_collection in matched_collections:
 
                         # grab the offset from one of the branches of the target datatype
-                        target_vars = parsed_edm4hep["datatypes"][target_datatype][
+                        target_vars = self.parsed_edm4hep["datatypes"][target_datatype][
                             "Members"
                         ]
                         first_var = list(target_vars.keys())[0]
@@ -601,14 +678,6 @@ class EDM4HEPSchema(BaseSchema):
                                 )
                             }
                         )
-                        # target_form = zip_forms(OneToOneRelations_content, member)
-
-                        # branch_forms[
-                        #     f"{collection}/{collection}.{member}_idx_{matched_collection}"
-                        # ] = target_form
-                        # branch_forms[
-                        #     f"{collection}/{collection}.{member}_idx_{matched_collection}"
-                        # ]["content"]["parameters"] = {"__doc__": OneToOneRelations[member]["doc"]}
 
                         for name, form in OneToOneRelations_content.items():
                             branch_forms[
@@ -628,7 +697,6 @@ class EDM4HEPSchema(BaseSchema):
         for collection in all_collections:
             if collection.startswith("_"):
                 continue
-            # print("\ncollection : ", collection)
             branch_var = {
                 name.split("/")[1].split(".")[1]: branch_forms[name]
                 for name in fieldnames
@@ -637,7 +705,7 @@ class EDM4HEPSchema(BaseSchema):
             datatype = self._datatype_mixins.get(collection, None)
             if datatype is None:
                 continue
-            OneToManyRelations = parsed_edm4hep["datatypes"][
+            OneToManyRelations = self.parsed_edm4hep["datatypes"][
                 "edm4hep::" + datatype
             ].get("OneToManyRelations", None)
             if OneToManyRelations is None:
@@ -652,8 +720,6 @@ class EDM4HEPSchema(BaseSchema):
                     and (len(name.split("/")) > 1)
                 }
 
-                # print('\nmember : ', member)
-                # print('\ntarget_contents.keys() : \n', target_contents.keys())
                 begin_form = branch_var[member + "_begin"]
                 end_form = branch_var[member + "_end"]
                 branch_forms.pop(f"{collection}/{collection}.{member}_begin")
@@ -668,7 +734,6 @@ class EDM4HEPSchema(BaseSchema):
                     raise RuntimeError(f"_{collection}_{member} not found!")
                 else:
                     target_datatype = OneToManyRelations[member]["type"]
-                    # print('\ntarget_datatype : ', target_datatype)
                     matched_collections = [
                         collection_name
                         for collection_name, datatype in self._datatype_mixins.items()
@@ -680,45 +745,46 @@ class EDM4HEPSchema(BaseSchema):
                     # For now, lets add the relation to all the matched collections
                     if len(matched_collections) == 0:
                         # Might be the TrackerHit Interface
-                        if target_datatype in list(parsed_edm4hep["interfaces"].keys()):
-                            # What datatypes does it interface to?
-                            interfaced_datatypes = parsed_edm4hep["interfaces"][
-                                target_datatype
-                            ]["Types"]
-                            matched_collections = []
-                            for i in interfaced_datatypes:
-                                for (
-                                    col_name,
-                                    datatype_name,
-                                ) in self._datatype_mixins.items():
-                                    if "edm4hep::" + datatype_name == i:
-                                        matched_collections.append(col_name)
-                        # Or maybe not
-                        else:
-                            raise RuntimeError(
-                                f"No matched collection for {target_datatype} found!"
-                            )
+                        if (
+                            self.edm4hep["schema_version"] == "1"
+                        ):  # version 1 doesn't have interfaces
+                            pass
+                        elif self.edm4hep["schema_version"] == "2":
+                            if target_datatype in list(
+                                self.parsed_edm4hep["interfaces"].keys()
+                            ):
+                                # What datatypes does it interface to?
+                                interfaced_datatypes = self.parsed_edm4hep[
+                                    "interfaces"
+                                ][target_datatype]["Types"]
+                                matched_collections = []
+                                for i in interfaced_datatypes:
+                                    for (
+                                        col_name,
+                                        datatype_name,
+                                    ) in self._datatype_mixins.items():
+                                        if "edm4hep::" + datatype_name == i:
+                                            matched_collections.append(col_name)
+                            else:
+                                raise RuntimeError(
+                                    f"No matched collection for {target_datatype} found!"
+                                )
 
                     for matched_collection in matched_collections:
 
-                        # print("\nmatched_collection : ", matched_collection)
                         # grab the offset from one of the branches of the target datatype
                         target_datatype = self._datatype_mixins.get(
                             matched_collection, None
                         )
                         if target_datatype is None:
                             raise RuntimeError()
-                        # print("\ntarget_datatype : ", target_datatype)
-                        target_vars = parsed_edm4hep["datatypes"][
+                        target_vars = self.parsed_edm4hep["datatypes"][
                             "edm4hep::" + target_datatype
                         ]["Members"]
                         first_var = list(target_vars.keys())[0]
-                        # print("\nfirst_var from target_vars: ", first_var)
                         offset_form = branch_forms[
                             f"{matched_collection}/{matched_collection}.{first_var}"
                         ]
-                        # print(collection)
-                        # print(f'{matched_collection}/{matched_collection}.{first_var}')
                         target_datatype_offset_form = {
                             "class": "NumpyArray",
                             "itemsize": 8,
@@ -730,7 +796,6 @@ class EDM4HEPSchema(BaseSchema):
                             ),
                         }
                         first_var = list(branch_var.keys())[0]
-                        # print("\nfirst_var from branch_var: ", first_var)
                         zip_offset_form = branch_var[first_var]
                         zip_datatype_offset_form = copy.deepcopy(
                             target_datatype_offset_form
@@ -745,18 +810,6 @@ class EDM4HEPSchema(BaseSchema):
                             )
                             for name, targetform in target_contents.items()
                         }
-                        # print('\nOneToManyRelations_content :\n', OneToManyRelations_content)
-                        # OneToManyRelations_content_global = {
-                        #     name.split(".")[1]
-                        #     + "_Global": transforms.global_begin_end_range_form(
-                        #         copy.deepcopy(begin_form),
-                        #         copy.deepcopy(end_form),
-                        #         copy.deepcopy(targetform),
-                        #         copy.deepcopy(target_datatype_offset_form),
-                        #     )
-                        #     for name, targetform in target_contents.items()
-                        #     if name.split(".")[1] == "index"
-                        # }
                         OneToManyRelations_content_global = {
                             name
                             + "_Global": transforms.nested_local2global_form(
@@ -766,24 +819,11 @@ class EDM4HEPSchema(BaseSchema):
                             for name, form in OneToManyRelations_content.items()
                             if name == "index"
                         }
-                        # print('\nOneToManyRelations_content_global :\n', OneToManyRelations_content_global)
 
                         to_zip = {
                             **OneToManyRelations_content,
                             **OneToManyRelations_content_global,
                         }
-                        # target_form = zip_forms(to_zip, member, offsets=zip_datatype_offset_form)
-
-                        # branch_forms[
-                        #     f"{collection}/{collection}.{member}_idx_{matched_collection}"
-                        # ] = target_form
-                        # branch_forms[
-                        #     f"{collection}/{collection}.{member}_idx_{matched_collection}"
-                        # ]["content"]["parameters"] = {"__doc__": OneToManyRelations[member]["doc"]}
-
-                        # branch_forms[
-                        #     f"Special_Branch_{member}_idx_{matched_collection}/Special_Branch_{member}_idx_{matched_collection}.{member}_idx_{matched_collection}"
-                        # ] = target_form
 
                         for key, form in to_zip.items():
                             branch_forms[
@@ -803,17 +843,12 @@ class EDM4HEPSchema(BaseSchema):
         for collection in all_collections:
             if collection.startswith("_"):
                 continue
-            # branch_var = {
-            #     name.split("/")[1].split(".")[1]: branch_forms[name]
-            #     for name in fieldnames
-            #     if (name.split("/")[0] == collection) and (len(name.split("/")) > 1)
-            # }
             datatype = self._datatype_mixins.get(collection, None)
             if datatype is None:
                 continue
-            OneToOneRelations = parsed_edm4hep["datatypes"]["edm4hep::" + datatype].get(
-                "OneToOneRelations", None
-            )
+            OneToOneRelations = self.parsed_edm4hep["datatypes"][
+                "edm4hep::" + datatype
+            ].get("OneToOneRelations", None)
             if OneToOneRelations is None:
                 continue
             if not all(
@@ -850,12 +885,12 @@ class EDM4HEPSchema(BaseSchema):
                         if len(matched_collections) == 0:
                             # Might be the TrackerHit Interface
                             if target_datatype in list(
-                                parsed_edm4hep["interfaces"].keys()
+                                self.parsed_edm4hep["interfaces"].keys()
                             ):
                                 # What datatypes does it interface to?
-                                interfaced_datatypes = parsed_edm4hep["interfaces"][
-                                    target_datatype
-                                ]["Types"]
+                                interfaced_datatypes = self.parsed_edm4hep[
+                                    "interfaces"
+                                ][target_datatype]["Types"]
                                 matched_collections = []
                                 for i in interfaced_datatypes:
                                     for (
@@ -878,7 +913,7 @@ class EDM4HEPSchema(BaseSchema):
                             )
                             if target_datatype is None:
                                 raise RuntimeError()
-                            target_vars = parsed_edm4hep["datatypes"][
+                            target_vars = self.parsed_edm4hep["datatypes"][
                                 "edm4hep::" + target_datatype
                             ]["Members"]
                             first_var = list(target_vars.keys())[0]
@@ -1014,7 +1049,6 @@ class EDM4HEPSchema(BaseSchema):
             }
 
             first_var_form = collection_content[list(collection_content.keys())[0]]
-            # print(f"offset variable taken for {name} : ", list(collection_content.keys())[0])
             offset_form = {
                 "class": "NumpyArray",
                 "itemsize": 8,
@@ -1037,9 +1071,9 @@ class EDM4HEPSchema(BaseSchema):
                 output[name]["content"]["parameters"].update(
                     {
                         "collection_name": name,
-                        "__doc__": parsed_edm4hep["datatypes"]["edm4hep::" + mixin].get(
-                            "Description", mixin
-                        ),
+                        "__doc__": self.parsed_edm4hep["datatypes"][
+                            "edm4hep::" + mixin
+                        ].get("Description", mixin),
                     }
                 )
 
@@ -1113,8 +1147,6 @@ class EDM4HEPSchema(BaseSchema):
         Builds all the collections with the necessary behaviors defined in the mixins dictionary
         """
         branch_forms = {k: v for k, v in zip(field_names, input_contents)}
-        # print(dir(self))
-        print(branch_forms)
         # All collection names
         # Example: ReconstructedParticles or _ReconstructedParticle_clusters, etc
         all_collections = {
@@ -1140,11 +1172,7 @@ class EDM4HEPSchema(BaseSchema):
         )
 
         # sort the output by key
-        # output = sort_dict(branch_forms)
         output = sort_dict(output)
-        print('\nOutput\n')
-
-        print(output)
 
         return output.keys(), output.values()
 
@@ -1158,3 +1186,29 @@ class EDM4HEPSchema(BaseSchema):
         behavior.update(vector.behavior)
         behavior.update(edm4hep.behavior)
         return behavior
+
+
+class EDM4HEPSchema_v00_99_00(EDM4HEPSchema):
+    edm4hep_version = "00-99-00"
+
+
+class EDM4HEPSchema_v00_10_05(EDM4HEPSchema):
+    """EDM4HEPSchema for edm4hep version 00.10.05"""
+
+    edm4hep_version = "00-10-05"
+
+
+class EDM4HEPSchema_v00_10_04(EDM4HEPSchema):
+    edm4hep_version = "00-10-04"
+
+
+class EDM4HEPSchema_v00_10_03(EDM4HEPSchema):
+    edm4hep_version = "00-10-03"
+
+
+class EDM4HEPSchema_v00_10_02(EDM4HEPSchema):
+    edm4hep_version = "00-10-02"
+
+
+class EDM4HEPSchema_v00_10_01(EDM4HEPSchema):
+    edm4hep_version = "00-10-01"

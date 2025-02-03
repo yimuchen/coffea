@@ -98,7 +98,9 @@ class FCCSchema(BaseSchema):
     #     "*idx": "ObjectID",
     # }
 
-    extra_mixins = {"*idx": "ObjectID",}
+    extra_mixins = {
+        "*idx": "ObjectID",
+    }
 
     _momentum_fields_e = {
         "energy": "E",
@@ -133,12 +135,7 @@ class FCCSchema(BaseSchema):
     mc_relations = {"parents": "Particle#0.index", "daughters": "Particle#1.index"}
 
     def __init__(self, base_form, version="latest"):
-        # print('all_keys base\n', base_form.keys())
         super().__init__(base_form)
-        # print("base_form.keys()")
-        # print(base_form.keys())
-        # print("base_form['typenames']")
-        # print(base_form['typenames'])
 
         self._create_mixin(base_form)
 
@@ -147,18 +144,15 @@ class FCCSchema(BaseSchema):
         )
 
     def _create_mixin(self, base_form):
-
-        eager_mode_typenames = base_form.get("typenames",None)
+        """Extract mixin dictionary from typename info"""
+        eager_mode_typenames = base_form.get("typenames", None)
         if eager_mode_typenames is None:
             # Dask mode has typename stored in each branch
             # Collect all those typenames into a single dictionary
             collected_branch_typenames = {}
-            for name, form in zip(self._form["fields"],self._form["contents"]):
-                # print("Branch Name : ", name)
-                # print(f"\nBranch_form :\n{form}\n\n")
-                matched = form["parameters"].get("typename","unknown")
+            for name, form in zip(self._form["fields"], self._form["contents"]):
+                matched = form["parameters"].get("typename", "unknown")
                 collected_branch_typenames[name] = matched
-                # print(f"\nMatched_typename :\n{matched}\n\n")
             typenames = collected_branch_typenames
         else:
             typenames = eager_mode_typenames
@@ -182,15 +176,14 @@ class FCCSchema(BaseSchema):
             datatype = typenames.get(name, "NanoCollection")
             if datatype.startswith(r"vector<edm4hep::"):
                 if datatype.endswith("Data>"):
-                    mixins[name] = datatype.split('::')[-1][:-5]
+                    mixins[name] = datatype.split("::")[-1][:-5]
                 else:
-                    raise RuntimeError('Unknown datatype:', datatype)
+                    raise RuntimeError("Unknown datatype:", datatype)
             else:
                 mixins[name] = datatype
 
         mixins_dictionary = {**mixins, **self.extra_mixins}
 
-        # print(mixins_dictionary)
         self.mixins_dictionary = mixins_dictionary
 
     def _idx_collections(self, output, branch_forms, all_collections):
@@ -598,8 +591,6 @@ class FCCSchema(BaseSchema):
         """
         branch_forms = {k: v for k, v in zip(field_names, input_contents)}
 
-        # print('\nINIT\n')
-        # print(branch_forms)
         # All collection names
         # Example: ReconstructedParticles
         all_collections = {
@@ -639,8 +630,6 @@ class FCCSchema(BaseSchema):
 
         # sort the output by key
         output = sort_dict(output)
-        # print('\nFIN\n')
-        # print(output)
         return output.keys(), output.values()
 
     @classmethod
@@ -666,23 +655,23 @@ class FCCSchema_edm4hep1(EDM4HEPSchema):
     For more info, check EDM4HEPSchema
     """
 
-    _datatype_mixins = {
-        "CalorimeterHits": "CalorimeterHit",
-        "EFlowNeutralHadron": "Cluster",
-        "EFlowPhoton": "Cluster",
-        "EFlowTrack": "Track",
-        "EFlowTrack_dNdx": "RecDqdx",
-        "Electron_objIdx": "ObjectID",
-        "EventHeader": "EventHeader",
-        "Jet": "ReconstructedParticle",
-        "MCRecoAssociations": "RecoMCParticleLink",
-        "Muon_objIdx": "ObjectID",
-        "Particle": "MCParticle",
-        "ParticleIDs": "ParticleID",
-        "Photon_objIdx": "ObjectID",
-        "ReconstructedParticles": "ReconstructedParticle",
-        "TrackerHits": "TrackerHit3D",
-    }
+    # _datatype_mixins = {
+    #     "CalorimeterHits": "CalorimeterHit",
+    #     "EFlowNeutralHadron": "Cluster",
+    #     "EFlowPhoton": "Cluster",
+    #     "EFlowTrack": "Track",
+    #     "EFlowTrack_dNdx": "RecDqdx",
+    #     "Electron_objIdx": "ObjectID",
+    #     "EventHeader": "EventHeader",
+    #     "Jet": "ReconstructedParticle",
+    #     "MCRecoAssociations": "RecoMCParticleLink",
+    #     "Muon_objIdx": "ObjectID",
+    #     "Particle": "MCParticle",
+    #     "ParticleIDs": "ParticleID",
+    #     "Photon_objIdx": "ObjectID",
+    #     "ReconstructedParticles": "ReconstructedParticle",
+    #     "TrackerHits": "TrackerHit3D",
+    # }
 
     copy_links_to_target_datatype = True
 
