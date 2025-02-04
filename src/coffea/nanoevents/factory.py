@@ -23,7 +23,6 @@ from coffea.nanoevents.mapping import (
 from coffea.nanoevents.schemas import BaseSchema, NanoAODSchema
 from coffea.nanoevents.util import key_to_tuple, quote, tuple_to_key, unquote
 from coffea.util import _remove_not_interpretable
-import keyword
 
 _offsets_label = quote(",!offsets")
 

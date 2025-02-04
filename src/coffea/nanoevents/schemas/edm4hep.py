@@ -313,8 +313,7 @@ class EDM4HEPSchema(BaseSchema):
             # Collect all those typenames into a single dictionary
             collected_branch_typenames = {}
             for name, form in zip(self._form["fields"], self._form["contents"]):
-                # matched = form["parameters"].get("typename", "unknown")
-                matched = form["parameters"]["typename"]
+                matched = form["parameters"].get("typename", "unknown")
                 collected_branch_typenames[name] = matched
             typenames = collected_branch_typenames
         else:
