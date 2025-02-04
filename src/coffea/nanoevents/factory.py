@@ -23,6 +23,7 @@ from coffea.nanoevents.mapping import (
 from coffea.nanoevents.schemas import BaseSchema, NanoAODSchema
 from coffea.nanoevents.util import key_to_tuple, quote, tuple_to_key, unquote
 from coffea.util import _remove_not_interpretable
+import keyword
 
 _offsets_label = quote(",!offsets")
 
@@ -117,7 +118,7 @@ class _map_schema_uproot(_map_schema_base):
         for ifield, field in enumerate(form.fields):
             iform = form.contents[ifield].to_dict()
             branch_forms[field] = _lazify_form(
-                iform, f"{field},!load", docstr=iform["parameters"]["__doc__"]
+                iform, f"{field},!load", docstr=iform["parameters"]["__doc__"], typestr=iform["parameters"]["typename"]
             )
         lform = {
             "class": "RecordArray",
@@ -129,8 +130,7 @@ class _map_schema_uproot(_map_schema_base):
             },
             "form_key": None,
         }
-        # print('132 factory form\n\n', form.to_dict().keys())
-        # print('132 factory lform\n\n', lform.keys())
+
         return (
             awkward.forms.form.from_dict(self.schemaclass(lform, self.version).form),
             self,
@@ -343,7 +343,6 @@ class NanoEventsFactory:
             to_open = file
             if isinstance(file, uproot.reading.ReadOnlyDirectory):
                 to_open = file[treepath]
-
             opener = partial(
                 uproot.dask,
                 to_open,
@@ -404,7 +403,6 @@ class NanoEventsFactory:
             tree, iteritems_options=iteritems_options
         )
         base_form["typenames"] = typenames
-        # print('\nline 400\n',base_form.keys())
 
         return cls._from_mapping(
             mapping,
