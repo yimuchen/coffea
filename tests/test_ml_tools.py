@@ -222,8 +222,26 @@ def test_tensorflow():
     columns = set(list(dak.necessary_columns(dak_res).values())[0])
     assert columns == expected_columns
 
-    # TODO: - Length 0 testing. The current tensorflow module used for testing
-    # just happens to require explicit unflattening to get the correct shape
+    # Length 0 testing. we cannot use the unflatten module in this case
+    class tf_wrapper_lenght0_test(tf_wrapper):
+        def prepare_awkward(self, arr):
+            return [arr], {}
+
+    tfw_length0_tester = tf_wrapper_lenght0_test("tests/samples/tf_model.keras", skip_length_zero=True)
+
+    # Making an explicit shape
+    arr = ak.from_numpy(np.random.random(size=(10, 64, 18)))
+    ak.to_parquet(arr, "tf_length10.parquet")
+    darr = dak.from_parquet("tf_length10.parquet")
+    ak_res = tfw_length0_tester(arr)
+    dak_res = tfw_length0_tester(darr)
+    assert np.all(np.isclose(ak_res, dak_res.compute()))
+    # Reducing the length 0
+    arr = ak.from_numpy(np.zeros(shape=(0, 64, 18)))
+    ak.to_parquet(arr, "tf_length0.parquet")
+    darr = dak.from_parquet("tf_length0.parquet")
+    ak_res = tfw_length0_tester(arr)
+    dak_res = tfw_length0_tester(darr)
 
     client.close()
 
