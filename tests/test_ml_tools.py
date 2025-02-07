@@ -227,7 +227,9 @@ def test_tensorflow():
         def prepare_awkward(self, arr):
             return [arr], {}
 
-    tfw_length0_tester = tf_wrapper_lenght0_test("tests/samples/tf_model.keras", skip_length_zero=True)
+    tfw_length0_tester = tf_wrapper_lenght0_test(
+        "tests/samples/tf_model.keras", skip_length_zero=True
+    )
 
     # Making an explicit shape
     arr = ak.from_numpy(np.random.random(size=(10, 64, 18)))
