@@ -72,7 +72,7 @@ Install coffea like any other Python package:
     pip install coffea
 
 or similar (use ``sudo``, ``--user``, ``virtualenv``, or pip-in-conda if you wish).
-For more details, see the `Installing coffea <https://coffeateam.github.io/coffea/installation.html>`_ section of the documentation.
+For more details, see the `Installing coffea <https://coffea-hep.readthedocs.io/en/latest/installation.html>`_ section of the documentation.
 
 Strict dependencies
 ===================
