@@ -105,7 +105,7 @@ class tf_wrapper(nonserializable_attribute, numpy_call_wrapper):
         """
         first_arg = args[0] if len(args) else next(iter(kwargs.values()))
         if len(first_arg) == 0 and self.skip_length_zero:
-            return numpy.zeros(shape=(0, self.model.output_shape[1:]))
+            return numpy.zeros(shape=(0, *self.model.output_shape[1:]))
         args = [
             (
                 tensorflow.convert_to_tensor(arr)
