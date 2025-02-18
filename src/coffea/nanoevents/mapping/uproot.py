@@ -113,7 +113,9 @@ class UprootSourceMapping(BaseSourceMapping):
         decompression_executor=None,
         interpretation_executor=None,
     ):
-        super().__init__(fileopener, start, stop, cache, access_log, use_ak_forth, virtual)
+        super().__init__(
+            fileopener, start, stop, cache, access_log, use_ak_forth, virtual
+        )
         self.decompression_executor = (
             decompression_executor or uproot.source.futures.TrivialExecutor()
         )

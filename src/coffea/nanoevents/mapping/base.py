@@ -1,9 +1,9 @@
 from abc import abstractmethod
 from collections.abc import Mapping
+from functools import partial
 
 import numpy
 from cachetools import LRUCache
-from functools import partial
 
 from coffea.nanoevents import transforms
 from coffea.nanoevents.util import key_to_tuple, tuple_to_key
@@ -22,7 +22,14 @@ class BaseSourceMapping(Mapping):
     _debug = False
 
     def __init__(
-        self, fileopener, start, stop, cache=None, access_log=None, use_ak_forth=False, virtual=False
+        self,
+        fileopener,
+        start,
+        stop,
+        cache=None,
+        access_log=None,
+        use_ak_forth=False,
+        virtual=False,
     ):
         self._fileopener = fileopener
         self._cache = cache
@@ -133,6 +140,7 @@ class BaseSourceMapping(Mapping):
                         f"Left with non-bare array after evaluating form key {nodes}"
                     )
             return out
+
         if self._virtual:
             return partial(_getitem, key)
         return _getitem(key)
