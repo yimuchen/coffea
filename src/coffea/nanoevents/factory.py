@@ -390,6 +390,7 @@ class NanoEventsFactory:
             cache={},
             access_log=access_log,
             use_ak_forth=use_ak_forth,
+            virtual=True, # make this an option in `from_root`
         )
         mapping.preload_column_source(partition_key[0], partition_key[1], tree)
 
