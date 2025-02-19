@@ -243,7 +243,7 @@ ReconstructedParticleArray.MomentumClass = vector.LorentzVectorArray  # noqa: F8
 
 
 @awkward.mixin_class(behavior)
-class RecoMCParticleLink(base.NanoCollection):
+class MCRecoParticleAssociation(base.NanoCollection):
     """MCRecoParticleAssociation objects."""
 
     @property
@@ -285,12 +285,14 @@ class RecoMCParticleLink(base.NanoCollection):
         return awkward.concatenate((r, m), axis=2)
 
 
-_set_repr_name("RecoMCParticleLink")
+_set_repr_name("MCRecoParticleAssociation")
 
-RecoMCParticleLinkArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
-RecoMCParticleLinkArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
-RecoMCParticleLinkArray.ProjectionClass4D = RecoMCParticleLinkArray  # noqa: F821
-RecoMCParticleLinkArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
+MCRecoParticleAssociationArray.ProjectionClass2D = vector.TwoVectorArray  # noqa: F821
+MCRecoParticleAssociationArray.ProjectionClass3D = vector.ThreeVectorArray  # noqa: F821
+MCRecoParticleAssociationArray.ProjectionClass4D = (  # noqa: F821
+    MCRecoParticleAssociationArray  # noqa: F821  # noqa: F821
+)
+MCRecoParticleAssociationArray.MomentumClass = vector.LorentzVectorArray  # noqa: F821
 
 
 @awkward.mixin_class(behavior)

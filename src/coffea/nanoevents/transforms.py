@@ -166,9 +166,7 @@ def grow_local_index_to_target_shape_form(index, target):
     form = copy.deepcopy(index)
     form["content"]["form_key"] = concat(
         index["content"]["form_key"],
-        target["content"][
-            "form_key"
-        ],  # , "!grow_local_index_to_target_shape", "!content"
+        target["content"]["form_key"],
     )
     form["form_key"] = concat(
         index["form_key"], target["form_key"], "!grow_local_index_to_target_shape"
@@ -304,7 +302,6 @@ def index_range_global_index(array, begin, target):
 
 def nested_local2global(array, target_offsets_raw):
     counts2 = awkward.flatten(awkward.num(array, axis=2), axis=1)
-    # flat_index = awkward.values_astype(awkward.flatten(awkward.local_index(array), axis=2),"int64")
     flat_index = awkward.values_astype(awkward.flatten(array, axis=2), "int64")
 
     target_offsets = awkward.values_astype(target_offsets_raw, "int64")
@@ -326,11 +323,8 @@ def nested_local2global_stack(stack):
     counts2 = awkward.flatten(awkward.num(array, axis=2), axis=1)
 
     if awkward.sum(counts2) == 0:  # Empty indices
-        # print('Empty Indices')
         nested_global = array
     else:
-
-        # flat_index = awkward.values_astype(awkward.flatten(awkward.local_index(array), axis=2),"int64")
         flat_index = awkward.values_astype(awkward.flatten(array, axis=2), "int64")
 
         target_offsets = awkward.values_astype(target_offsets_raw, "int64")
@@ -346,7 +340,6 @@ def nested_local2global_stack(stack):
 
         nested_global_flat = awkward.unflatten(out, counts2, axis=0)
         nested_global = awkward.unflatten(nested_global_flat, counts1, axis=0)
-    # print(nested_global)
     stack.append(nested_global)
 
 
@@ -386,9 +379,9 @@ def get_index_ranges(begin, end):
     )
     ranges = get_index_ranges_kernel(begin_end, awkward.ArrayBuilder()).snapshot()
 
-    offset1 = ranges.layout.offsets
-    offset2 = ranges.layout.content.offsets
-    return ranges, offset1, offset2
+    if awkward.sum(ranges) == 0:  # empty ranges, return a twice nested empty array
+        ranges = begin_end[begin_end < 0]
+    return ranges
 
 
 @numba.jit
@@ -437,7 +430,7 @@ def begin_end_mapping(stack):
     target = stack.pop()
     end = stack.pop()
     begin = stack.pop()
-    indices, o1, o2 = get_index_ranges(begin, end)
+    indices = get_index_ranges(begin, end)
 
     if awkward.sum(awkward.num(target, axis=1)) == 0:  # Empty Target
         out = indices[indices < 0]  # return an empty array
