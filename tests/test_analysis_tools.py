@@ -921,9 +921,9 @@ def test_packed_selection_cutflow_extended(weighted, commonmasked, withcategoric
             assert "wgtevcutflow" not in file
             assert "weights" not in file
     os.remove("cutflow.npz")
-    # FIXME: make v2 default/only option
+
     honecut, hcutflow, hlabels, *optional = cutflow.yieldhist(
-        weighted=weighted, v2=True, categorical=categorical if withcategorical else None
+        weighted=weighted, categorical=categorical if withcategorical else None
     )
 
     assert hlabels == ["initial", "noMuon", "twoElectron", "leadPt20"]
@@ -1639,11 +1639,10 @@ def test_packed_selection_cutflow_extended_dak(
                 assert "wgtevcutflow" not in file
                 assert "weights" not in file
         os.remove("cutflow.npz")
-        # FIXME: make v2 default/only option
+
         honecut, hcutflow, hlabels, *optional = dask.compute(
             *cutflow.yieldhist(
                 weighted=weighted,
-                v2=True,
                 categorical=categorical if withcategorical else None,
             )
         )
