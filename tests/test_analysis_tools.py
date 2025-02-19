@@ -1,10 +1,10 @@
 import os
+import tempfile
 
 import hist
 import numpy as np
 import pytest
 import uproot
-import tempfile
 from dummy_distributions import dummy_jagged_eta_pt
 
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
@@ -555,14 +555,14 @@ def test_packed_selection_nminusone():
         assert np.all(mask == truth)
 
     with tempfile.TemporaryDirectory() as tmp:
-        nminusone_uncompressed = os.path.join(tmp, 'nminusone_uncompressed.npz')
+        nminusone_uncompressed = os.path.join(tmp, "nminusone_uncompressed.npz")
         nminusone.to_npz(nminusone_uncompressed, compressed=False).compute()
         with np.load(nminusone_uncompressed) as file:
             assert np.all(file["labels"] == labels)
             assert np.all(file["nev"] == nev)
             assert np.all(file["masks"] == masks)
 
-        nminusone_compressed = os.path.join(tmp, 'nminusone_compresssed.npz')
+        nminusone_compressed = os.path.join(tmp, "nminusone_compresssed.npz")
         nminusone.to_npz(nminusone_compressed, compressed=True).compute()
         with np.load(nminusone_compressed) as file:
             assert np.all(file["labels"] == labels)
@@ -664,7 +664,7 @@ def test_packed_selection_cutflow():
         assert np.all(mask == truth)
 
     with tempfile.TemporaryDirectory() as tmp:
-        cutflow_uncompressed = os.path.join(tmp, 'cutflow_uncompresssed.npz')
+        cutflow_uncompressed = os.path.join(tmp, "cutflow_uncompresssed.npz")
         cutflow.to_npz(cutflow_uncompressed, compressed=False).compute()
         with np.load(cutflow_uncompressed) as file:
             assert np.all(file["labels"] == labels)
@@ -673,7 +673,7 @@ def test_packed_selection_cutflow():
             assert np.all(file["masksonecut"] == masksonecut)
             assert np.all(file["maskscutflow"] == maskscutflow)
 
-        cutflow_compressed = os.path.join(tmp, 'cutflow_compresssed.npz')
+        cutflow_compressed = os.path.join(tmp, "cutflow_compresssed.npz")
         cutflow.to_npz(cutflow_compressed, compressed=True).compute()
         with np.load(cutflow_compressed) as file:
             assert np.all(file["labels"] == labels)
@@ -864,8 +864,10 @@ def test_packed_selection_cutflow_extended(weighted, commonmasked, withcategoric
             )
 
     with tempfile.TemporaryDirectory() as tmp:
-        cutflow_uncompressed = os.path.join(tmp, 'cutflow_uncompresssed.npz')
-        cutflow.to_npz(cutflow_uncompressed, compressed=False, includeweights=False).compute()
+        cutflow_uncompressed = os.path.join(tmp, "cutflow_uncompresssed.npz")
+        cutflow.to_npz(
+            cutflow_uncompressed, compressed=False, includeweights=False
+        ).compute()
         with np.load(cutflow_uncompressed) as file:
             assert np.all(file["labels"] == labels)
             assert np.all(file["nevonecut"] == nevonecut)
@@ -884,7 +886,7 @@ def test_packed_selection_cutflow_extended(weighted, commonmasked, withcategoric
                 assert "wgtevcutflow" not in file
             assert "weights" not in file
 
-        cutflow_compressed = os.path.join(tmp, 'cutflow_compressed.npz')
+        cutflow_compressed = os.path.join(tmp, "cutflow_compressed.npz")
         cutflow.to_npz(cutflow_compressed, compressed=True).compute()
         with np.load(cutflow_compressed) as file:
             assert np.all(file["labels"] == labels)
@@ -905,8 +907,12 @@ def test_packed_selection_cutflow_extended(weighted, commonmasked, withcategoric
                 assert "wgtevcutflow" not in file
                 assert "weights" not in file
 
-        cutflow_compressed_weighted = os.path.join(tmp, 'cutflow_compresssed_weighted.npz')
-        cutflow.to_npz(cutflow_compressed_weighted, compressed=True, includeweights=True).compute()
+        cutflow_compressed_weighted = os.path.join(
+            tmp, "cutflow_compresssed_weighted.npz"
+        )
+        cutflow.to_npz(
+            cutflow_compressed_weighted, compressed=True, includeweights=True
+        ).compute()
         with np.load(cutflow_compressed_weighted) as file:
             assert np.all(file["labels"] == labels)
             assert np.all(file["nevonecut"] == nevonecut)
@@ -1204,14 +1210,14 @@ def test_packed_selection_nminusone_dak(optimization_enabled):
             assert np.all(mask.compute() == truth.compute())
 
         with tempfile.TemporaryDirectory() as tmp:
-            nminusone_uncompressed = os.path.join(tmp, 'nminusone_uncompresssed.npz')
+            nminusone_uncompressed = os.path.join(tmp, "nminusone_uncompresssed.npz")
             nminusone.to_npz(nminusone_uncompressed, compressed=False).compute()
             with np.load(nminusone_uncompressed) as file:
                 assert np.all(file["labels"] == labels)
                 assert np.all(file["nev"] == list(dask.compute(*nev)))
                 assert np.all(file["masks"] == list(dask.compute(*masks)))
 
-            nminusone_compressed = os.path.join(tmp, 'nminusone_compresssed.npz')
+            nminusone_compressed = os.path.join(tmp, "nminusone_compresssed.npz")
             nminusone.to_npz(nminusone_compressed, compressed=True).compute()
             with np.load(nminusone_compressed) as file:
                 assert np.all(file["labels"] == labels)
@@ -1331,7 +1337,7 @@ def test_packed_selection_cutflow_dak(optimization_enabled):
             assert np.all(mask.compute() == truth.compute())
 
         with tempfile.TemporaryDirectory() as tmp:
-            cutflow_uncompressed = os.path.join(tmp, 'cutflow_uncompressed.npz')
+            cutflow_uncompressed = os.path.join(tmp, "cutflow_uncompressed.npz")
             cutflow.to_npz(cutflow_uncompressed, compressed=False).compute()
             with np.load(cutflow_uncompressed) as file:
                 assert np.all(file["labels"] == labels)
@@ -1340,7 +1346,7 @@ def test_packed_selection_cutflow_dak(optimization_enabled):
                 assert np.all(file["masksonecut"] == list(dask.compute(*masksonecut)))
                 assert np.all(file["maskscutflow"] == list(dask.compute(*maskscutflow)))
 
-            cutflow_compressed = os.path.join(tmp, 'cutflow_compressed.npz')
+            cutflow_compressed = os.path.join(tmp, "cutflow_compressed.npz")
             cutflow.to_npz(cutflow_compressed, compressed=True).compute()
             with np.load(cutflow_compressed) as file:
                 assert np.all(file["labels"] == labels)
@@ -1575,8 +1581,10 @@ def test_packed_selection_cutflow_extended_dak(
                 )
 
         with tempfile.TemporaryDirectory() as tmp:
-            cutflow_uncompressed = os.path.join(tmp, 'cutflow_uncompresssed.npz')
-            cutflow.to_npz(cutflow_uncompressed, compressed=False, includeweights=False).compute()
+            cutflow_uncompressed = os.path.join(tmp, "cutflow_uncompresssed.npz")
+            cutflow.to_npz(
+                cutflow_uncompressed, compressed=False, includeweights=False
+            ).compute()
             with np.load(cutflow_uncompressed) as file:
                 assert np.all(file["labels"] == labels)
                 assert np.all(file["nevonecut"] == list(dask.compute(*nevonecut)))
@@ -1588,7 +1596,9 @@ def test_packed_selection_cutflow_extended_dak(
                 else:
                     assert "commonmask" not in file
                 if weighted:
-                    assert np.all(file["wgtevonecut"] == list(dask.compute(*r_wgtevonecut)))
+                    assert np.all(
+                        file["wgtevonecut"] == list(dask.compute(*r_wgtevonecut))
+                    )
                     assert np.all(
                         file["wgtevcutflow"] == list(dask.compute(*r_wgtevcutflow))
                     )
@@ -1597,7 +1607,7 @@ def test_packed_selection_cutflow_extended_dak(
                     assert "wgtevcutflow" not in file
                 assert "weights" not in file
 
-            cutflow_compressed = os.path.join(tmp, 'cutflow_compresssed.npz')
+            cutflow_compressed = os.path.join(tmp, "cutflow_compresssed.npz")
             cutflow.to_npz(cutflow_compressed, compressed=True).compute()
             with np.load(cutflow_compressed) as file:
                 assert np.all(file["labels"] == labels)
@@ -1610,7 +1620,9 @@ def test_packed_selection_cutflow_extended_dak(
                 else:
                     assert "commonmask" not in file
                 if weighted:
-                    assert np.all(file["wgtevonecut"] == list(dask.compute(*r_wgtevonecut)))
+                    assert np.all(
+                        file["wgtevonecut"] == list(dask.compute(*r_wgtevonecut))
+                    )
                     assert np.all(
                         file["wgtevcutflow"] == list(dask.compute(*r_wgtevcutflow))
                     )
@@ -1622,8 +1634,12 @@ def test_packed_selection_cutflow_extended_dak(
                     assert "wgtevcutflow" not in file
                     assert "weights" not in file
 
-            cutflow_compressed_weighted = os.path.join(tmp, 'cutflow_compresssed_weighted.npz')
-            cutflow.to_npz(cutflow_compressed_weighted, compressed=True, includeweights=True).compute()
+            cutflow_compressed_weighted = os.path.join(
+                tmp, "cutflow_compresssed_weighted.npz"
+            )
+            cutflow.to_npz(
+                cutflow_compressed_weighted, compressed=True, includeweights=True
+            ).compute()
             with np.load(cutflow_compressed_weighted) as file:
                 assert np.all(file["labels"] == labels)
                 assert np.all(file["nevonecut"] == list(dask.compute(*nevonecut)))
@@ -1635,7 +1651,9 @@ def test_packed_selection_cutflow_extended_dak(
                 else:
                     assert "commonmask" not in file
                 if weighted:
-                    assert np.all(file["wgtevonecut"] == list(dask.compute(*r_wgtevonecut)))
+                    assert np.all(
+                        file["wgtevonecut"] == list(dask.compute(*r_wgtevonecut))
+                    )
                     assert np.all(
                         file["wgtevcutflow"] == list(dask.compute(*r_wgtevcutflow))
                     )
@@ -1817,14 +1835,14 @@ def test_packed_selection_nminusone_dak_uproot_only(optimization_enabled):
             assert np.all(mask.compute() == truth.compute())
 
         with tempfile.TemporaryDirectory() as tmp:
-            nminusone_uncompressed = os.path.join(tmp, 'nminusone_uncompresssed.npz')
+            nminusone_uncompressed = os.path.join(tmp, "nminusone_uncompresssed.npz")
             nminusone.to_npz(nminusone_uncompressed, compressed=False).compute()
             with np.load(nminusone_uncompressed) as file:
                 assert np.all(file["labels"] == labels)
                 assert np.all(file["nev"] == list(dask.compute(*nev)))
                 assert np.all(file["masks"] == list(dask.compute(*masks)))
 
-            nminusone_compressed = os.path.join(tmp, 'nminusone_compresssed.npz')
+            nminusone_compressed = os.path.join(tmp, "nminusone_compresssed.npz")
             nminusone.to_npz(nminusone_compressed, compressed=True).compute()
             with np.load(nminusone_compressed) as file:
                 assert np.all(file["labels"] == labels)
@@ -1944,7 +1962,7 @@ def test_packed_selection_cutflow_dak_uproot_only(optimization_enabled):
             assert np.all(mask.compute() == truth.compute())
 
         with tempfile.TemporaryDirectory() as tmp:
-            cutflow_uncompressed = os.path.join(tmp, 'cutflow_uncompresssed.npz')
+            cutflow_uncompressed = os.path.join(tmp, "cutflow_uncompresssed.npz")
             cutflow.to_npz(cutflow_uncompressed, compressed=False).compute()
             with np.load(cutflow_uncompressed) as file:
                 assert np.all(file["labels"] == labels)
@@ -1953,7 +1971,7 @@ def test_packed_selection_cutflow_dak_uproot_only(optimization_enabled):
                 assert np.all(file["masksonecut"] == list(dask.compute(*masksonecut)))
                 assert np.all(file["maskscutflow"] == list(dask.compute(*maskscutflow)))
 
-            cutflow_compressed = os.path.join(tmp, 'cutflow_compresssed.npz')
+            cutflow_compressed = os.path.join(tmp, "cutflow_compresssed.npz")
             cutflow.to_npz(cutflow_compressed, compressed=True).compute()
             with np.load(cutflow_compressed) as file:
                 assert np.all(file["labels"] == labels)
