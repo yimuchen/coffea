@@ -141,7 +141,7 @@ jobs:
     needs: pre-commit
     strategy:
       matrix:
-        python-version: ["3.11"]
+        python-version: ["3.13"]
     name: test coffea-taskvine
     steps:
     - uses: actions/checkout@v4
