@@ -32,7 +32,9 @@ def _lazify_form(form, prefix, docstr=None, typestr=None):
     if not isinstance(form, dict) or "class" not in form:
         raise RuntimeError("form should have been normalized by now")
 
-    parameters = _lazify_parameters(form.get("parameters", {}), docstr=docstr, typestr=typestr)
+    parameters = _lazify_parameters(
+        form.get("parameters", {}), docstr=docstr, typestr=typestr
+    )
     if form["class"].startswith("ListOffset"):
         # awkward will add !offsets
         form["form_key"] = quote(prefix)
@@ -61,7 +63,10 @@ def _lazify_form(form, prefix, docstr=None, typestr=None):
         assert prefix.endswith("!load")
         form["form_key"] = quote(prefix + "allowmissing,!index")
         form["content"] = _lazify_form(
-            form["content"], prefix + "allowmissing,!content", docstr=docstr, typestr=typestr
+            form["content"],
+            prefix + "allowmissing,!content",
+            docstr=docstr,
+            typestr=typestr,
         )
         if parameters:
             form["parameters"] = parameters
@@ -96,7 +101,7 @@ def _lazify_parameters(form_parameters, docstr=None, typestr=None):
         parameters["__doc__"] = docstr
     if typestr is not None:
         parameters["typename"] = typestr
-    if "typename" in form_parameters: # eager mode
+    if "typename" in form_parameters:  # eager mode
         parameters["typename"] = form_parameters["typename"]
     return parameters
 
@@ -163,7 +168,9 @@ class UprootSourceMapping(BaseSourceMapping):
                 form.to_json()
             )  # normalizes form (expand NumpyArray classes)
             try:
-                form = _lazify_form(form, f"{key},!load", docstr=branch.title, typestr=branch.typename)
+                form = _lazify_form(
+                    form, f"{key},!load", docstr=branch.title, typestr=branch.typename
+                )
             except CannotBeNanoEvents as ex:
                 warnings.warn(
                     f"Skipping {key} as it is not interpretable by NanoEvents\nDetails: {ex}"
