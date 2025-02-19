@@ -117,7 +117,10 @@ class _map_schema_uproot(_map_schema_base):
         for ifield, field in enumerate(form.fields):
             iform = form.contents[ifield].to_dict()
             branch_forms[field] = _lazify_form(
-                iform, f"{field},!load", docstr=iform["parameters"]["__doc__"], typestr=iform["parameters"]["typename"]
+                iform,
+                f"{field},!load",
+                docstr=iform["parameters"]["__doc__"],
+                typestr=iform["parameters"]["typename"],
             )
         lform = {
             "class": "RecordArray",
@@ -346,7 +349,7 @@ class NanoEventsFactory:
                 to_open,
                 full_paths=True,
                 open_files=False,
-                ak_add_doc={"__doc__":"title", "typename":"typename"},
+                ak_add_doc={"__doc__": "title", "typename": "typename"},
                 filter_branch=_remove_not_interpretable,
                 steps_per_file=steps_per_file,
                 known_base_form=known_base_form,

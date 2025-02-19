@@ -312,7 +312,7 @@ datatypes:
       bool hasLeftDetector() const { return utils::checkBit(getSimulatorStatus(), BITLeftDetector); }\n
       /// True if the particle has been stopped by the simulation program.         \n
       bool isStopped() const { return utils::checkBit(getSimulatorStatus(), BITStopped); }     \n
-      /// True if the particle has been overlayed by the simulation (or digitization)  program.\n
+      /// True if the particle has been overlaid by the simulation (or digitization)  program.\n
       bool isOverlay() const { return utils::checkBit(getSimulatorStatus(), BITOverlay); }     \n
       "
 
