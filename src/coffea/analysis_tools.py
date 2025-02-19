@@ -1355,9 +1355,7 @@ class Cutflow:
                 weight = weight * scale
             if do_commonmasked:
                 weight = weight[self._commonmask]
-            hcutflow.fill(
-                dask_awkward.zeros_like(weight, dtype=int), weight=weight
-            )
+            hcutflow.fill(dask_awkward.zeros_like(weight, dtype=int), weight=weight)
         else:
             honecut = Hist(*axes)
             hcutflow = honecut.copy()
@@ -1413,7 +1411,7 @@ class Cutflow:
             }
             honecut.fill(**onecutargs)
             hcutflow.fill(**cutflowargs)
- 
+
         if do_categorical:
             return honecut, hcutflow, labels, catlabels
         else:
@@ -1544,7 +1542,11 @@ class Cutflow:
                 fill_args[catax.name] = catvar
             if do_weighted:
                 constructor_args.append(hist.storage.Weight())
-            fill_args["weight"] = self._weights.weight(self._weightsmodifier) if do_weighted else ak_or_dak.ones_like(self._masksonecut[0], dtype=numpy.float32)
+            fill_args["weight"] = (
+                self._weights.weight(self._weightsmodifier)
+                if do_weighted
+                else ak_or_dak.ones_like(self._masksonecut[0], dtype=numpy.float32)
+            )
             if do_scaled:
                 fill_args["weight"] = fill_args["weight"] * scale
             honecut = Hist(*constructor_args)
