@@ -1192,6 +1192,14 @@ class Cutflow:
                 A scale factor to apply to the cutflow statistics. Default is None, which does not apply any scaling.
         """
         do_weighted = self._weighted if weighted is None else weighted
+        do_scaled = scale is not None
+        if do_scaled:
+            if isinstance(scale, (int, float)):
+                pass
+            else:
+                raise ValueError(
+                    f"The scale must be an integer or a float, {scale} (type {type(scale)}) was provided."
+                )
 
         if self._delayed_mode:
             warnings.warn(
@@ -1209,20 +1217,13 @@ class Cutflow:
         xevonecut = self._nevonecut if not do_weighted else self._wgtevonecut
         xevcutflow = self._nevcutflow if not do_weighted else self._wgtevcutflow
 
-        if scale is not None:
-            if isinstance(scale, (int, float)):
-                xevonecut = [x * scale for x in xevonecut]
-                xevcutflow = [x * scale for x in xevcutflow]
-            else:
-                raise ValueError(
-                    f"The scale must be an integer or a float, {scale} (type {type(scale)}) was provided."
-                )
-
         header = "Cutflow stats:"
         if do_weighted:
             header += " (weighted)"
-        if scale is not None:
+        if do_scaled:
             header += f" (scaled by {scale})"
+            xevonecut = [x * scale for x in xevonecut]
+            xevcutflow = [x * scale for x in xevcutflow]
         print(header)
         for i, name in enumerate(self._names):
             stats = (
@@ -1235,7 +1236,7 @@ class Cutflow:
             )
             print(stats)
 
-    def yieldhist(self, weighted=None, v2=False, categorical=None):
+    def yieldhist(self, weighted=None, scale=None, categorical=None):
         """Returns the cutflow yields as ``hist.Hist`` objects
 
         Parameters
@@ -1264,16 +1265,22 @@ class Cutflow:
             catlabels : list of strings
                 The labels of the categorical axis
         """
-        print(
-            "Cutflow yieldhist should fold in commonmask for the initial fill where appropriate (v2...)"
-        )
-        print("Cutflow yieldhist should work for categorical")
         do_weighted = self._weighted if weighted is None else weighted
+        do_categorical = categorical is not None
+        do_commonmasked = self._commonmasked
+        do_scaled = scale is not None
+        if do_scaled:
+            if isinstance(scale, (int, float)):
+                pass
+            else:
+                raise ValueError(
+                    f"The scale must be an integer or a float, {scale} (type {type(scale)}) was provided."
+                )
         Hist = hist.Hist if not self._delayed_mode else hist.dask.Hist
         ak_or_dak = awkward if not self._delayed_mode else dask_awkward
         labels = ["initial"] + list(self._names)
         axes = [hist.axis.Integer(0, len(labels), name="onecut")]
-        if categorical is not None:
+        if do_categorical:
             catax = categorical.get("axis")
             catvar = categorical.get("values")
             catlabels = categorical.get("labels")
@@ -1282,7 +1289,7 @@ class Cutflow:
             catlabels = None
         if do_weighted:
             axes.append(hist.storage.Weight())
-        if not self._delayed_mode and not v2:
+        if not self._delayed_mode and not do_categorical:
             if categorical is not None:
                 raise NotImplementedError(
                     "yieldhist is not implemented for non-delayed mode (v1) with categorical"
@@ -1290,32 +1297,14 @@ class Cutflow:
             honecut = hist.Hist(*axes)
             hcutflow = honecut.copy()
             hcutflow.axes.name = ("cutflow",)
-            honecut.fill(
-                numpy.arange(len(labels), dtype=int),
-                weight=self._wgtevonecut if do_weighted else self._nevonecut,
-            )
-            hcutflow.fill(
-                numpy.arange(len(labels), dtype=int),
-                weight=self._wgtevcutflow if do_weighted else self._nevcutflow,
-            )
-        # elif not self._delayed_mode and v2:
-        #    raise NotImplementedError("yieldhist is not implemented for non-delayed mode and v2")
-        #    honecut = hist.Hist(*axes)
-        #    hcutflow = honecut.copy()
-        #    hcutflow.axes.name = ("cutflow", *honecut.axes[1:].name)
-        #    fillvarsonecut = {"onecut": numpy.arange(len(labels), dtype=int),
-        #                      "weight": self._wgtevonecut if do_weighted else self._nevonecut}
-        #    fillvarscutflow = {"cutflow": numpy.arange(len(labels), dtype=int),
-        #                       "weight": self._wgtevonecut if do_weighted else self._nevonecut}
-        #    if categorical is not None:
-        #        updatevars = {categorical.get("axis").name: categorical.get("values")}
-        #        fillvarsonecut.update(updatevars)
-        #        fillvarscutflow.update(updatevars)
-        #
-        #    honecut.fill(**fillvars)
-        #    fillvars["weight"] = self._wgtevcutflow if do_weighted else self._nevcutflow
-        #    hcutflow.fill(numpy.arange(len(labels), dtype=int), weight=self._wgtevcutflow if do_weighted else self._nevcutflow)
-        elif self._delayed_mode and not v2:
+            weightonecut = self._wgtevonecut if do_weighted else self._nevonecut
+            weightcutflow = self._wgtevcutflow if do_weighted else self._nevcutflow
+            if do_scaled:
+                weightonecut = [wgt * scale for wgt in weightonecut]
+                weightcutflow = [wgt * scale for wgt in weightcutflow]
+            honecut.fill(numpy.arange(len(labels), dtype=int), weight=weightonecut)
+            hcutflow.fill(numpy.arange(len(labels), dtype=int), weight=weightcutflow)
+        elif self._delayed_mode and not do_categorical:
             if categorical is not None:
                 raise NotImplementedError(
                     "yieldhist is not implemented for non-delayed mode (v1) with categorical"
@@ -1330,6 +1319,8 @@ class Cutflow:
                     if do_weighted
                     else mask
                 )
+                if do_scaled:
+                    weight = weight * scale
                 honecut.fill(
                     dask_awkward.full_like(weight, i, dtype=int), weight=weight
                 )
@@ -1338,7 +1329,9 @@ class Cutflow:
                 if do_weighted
                 else dask_awkward.ones_like(self._masksonecut[0], dtype=bool)
             )
-            if self._commonmasked:
+            if do_scaled:
+                weight = weight * scale
+            if do_commonmasked:
                 weight = weight[self._commonmask]
             honecut.fill(dask_awkward.zeros_like(weight, dtype=int), weight=weight)
 
@@ -1348,6 +1341,8 @@ class Cutflow:
                     if do_weighted
                     else mask
                 )
+                if do_scaled:
+                    weight = weight * scale
                 hcutflow.fill(
                     dask_awkward.full_like(weight, i, dtype=int), weight=weight
                 )
@@ -1356,13 +1351,14 @@ class Cutflow:
                 if do_weighted
                 else dask_awkward.ones_like(self._maskscutflow[0], dtype=bool)
             )
-            if self._commonmasked:
+            if do_scaled:
+                weight = weight * scale
+            if do_commonmasked:
                 weight = weight[self._commonmask]
             hcutflow.fill(
-                dask_awkward.zeros_like(self._maskscutflow[0], dtype=int), weight=weight
+                dask_awkward.zeros_like(weight, dtype=int), weight=weight
             )
         else:
-            assert v2
             honecut = Hist(*axes)
             hcutflow = honecut.copy()
             hcutflow.axes.name = ("cutflow", *honecut.axes[1:].name)
@@ -1372,9 +1368,8 @@ class Cutflow:
                 if do_weighted
                 else ak_or_dak.ones_like(self._masksonecut[0], dtype=numpy.float32)
             )
-            print(
-                "To insert commonmask here will be annoying... it needs to modify the unmasked_as_zeros"
-            )
+            if do_scaled:
+                weight = weight * scale
             if self._commonmasked:
                 to_broadcastonecut = {
                     "onecut": boolean_masks_to_categorical_integers(
@@ -1397,7 +1392,7 @@ class Cutflow:
                         self._maskscutflow, insert_unmasked_as_zeros=True
                     )
                 }
-            if categorical is not None:
+            if do_categorical:
                 to_broadcastonecut[catax.name] = catvar
                 to_broadcastcutflow[catax.name] = catvar
             to_broadcastonecut["weight"] = weight
@@ -1418,8 +1413,8 @@ class Cutflow:
             }
             honecut.fill(**onecutargs)
             hcutflow.fill(**cutflowargs)
-
-        if categorical is not None:
+ 
+        if do_categorical:
             return honecut, hcutflow, labels, catlabels
         else:
             return honecut, hcutflow, labels
@@ -1434,6 +1429,7 @@ class Cutflow:
         edges=None,
         transform=None,
         weighted=None,
+        scale=None,
         categorical=None,
     ):
         """Plot the histograms of variables for each step of the N-1 selection
@@ -1480,9 +1476,18 @@ class Cutflow:
                 The labels of the categorical axis
         """
         do_weighted = self._weighted if weighted is None else weighted
+        do_categorical = categorical is not None
+        do_scaled = scale is not None
+        if do_scaled:
+            if isinstance(scale, (int, float)):
+                pass
+            else:
+                raise ValueError(
+                    f"The scale must be an integer or a float, {scale} (type {type(scale)}) was provided."
+                )
         Hist = hist.dask.Hist if self._delayed_mode else hist.Hist
         ak_or_dak = dask_awkward if self._delayed_mode else awkward
-        if categorical is not None:
+        if do_categorical:
             catax = categorical.get("axis")
             catvar = categorical.get("values")
             catlabels = categorical.get("labels")
@@ -1490,7 +1495,7 @@ class Cutflow:
             for name, var in vars.items():
                 if not compatible_partitions(var, self._masksonecut[0]):
                     raise IncompatiblePartitions("plot_vars", var, self._masksonecut[0])
-            if categorical is not None:
+            if do_categorical:
                 if not compatible_partitions(catvar, self._masksonecut[0]):
                     raise IncompatiblePartitions(
                         "plot_vars (categorical values)", catvar, self._masksonecut[0]
@@ -1534,12 +1539,14 @@ class Cutflow:
         for (name, var), axis in zip(vars.items(), axes):
             constructor_args = [axis, hist.axis.Integer(0, len(labels), name="onecut")]
             fill_args = {name: var}
-            if categorical is not None:
+            if do_categorical:
                 constructor_args.append(catax)
                 fill_args[catax.name] = catvar
             if do_weighted:
                 constructor_args.append(hist.storage.Weight())
-                fill_args["weight"] = self._weights.weight(self._weightsmodifier)
+            fill_args["weight"] = self._weights.weight(self._weightsmodifier) if do_weighted else ak_or_dak.ones_like(self._masksonecut[0], dtype=numpy.float32)
+            if do_scaled:
+                fill_args["weight"] = fill_args["weight"] * scale
             honecut = Hist(*constructor_args)
             hcutflow = honecut.copy()
             hcutflow.axes.name = (name, "cutflow", *honecut.axes[2:].name)
@@ -1606,7 +1613,7 @@ class Cutflow:
                 )
             histscutflow.append(hcutflow)
 
-        if categorical is not None:
+        if do_categorical:
             return histsonecut, histscutflow, labels, catlabels
         else:
             return histsonecut, histscutflow, labels
