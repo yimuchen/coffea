@@ -4,6 +4,7 @@ import hist
 import numpy as np
 import pytest
 import uproot
+import tempfile
 from dummy_distributions import dummy_jagged_eta_pt
 
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
@@ -553,19 +554,20 @@ def test_packed_selection_nminusone():
     ):
         assert np.all(mask == truth)
 
-    nminusone.to_npz("nminusone.npz", compressed=False).compute()
-    with np.load("nminusone.npz") as file:
-        assert np.all(file["labels"] == labels)
-        assert np.all(file["nev"] == nev)
-        assert np.all(file["masks"] == masks)
-    os.remove("nminusone.npz")
+    with tempfile.TemporaryDirectory() as tmp:
+        nminusone_uncompressed = os.path.join(tmp, 'nminusone_uncompressed.npz')
+        nminusone.to_npz(nminusone_uncompressed, compressed=False).compute()
+        with np.load(nminusone_uncompressed) as file:
+            assert np.all(file["labels"] == labels)
+            assert np.all(file["nev"] == nev)
+            assert np.all(file["masks"] == masks)
 
-    nminusone.to_npz("nminusone.npz", compressed=True).compute()
-    with np.load("nminusone.npz") as file:
-        assert np.all(file["labels"] == labels)
-        assert np.all(file["nev"] == nev)
-        assert np.all(file["masks"] == masks)
-    os.remove("nminusone.npz")
+        nminusone_compressed = os.path.join(tmp, 'nminusone_compresssed.npz')
+        nminusone.to_npz(nminusone_compressed, compressed=True).compute()
+        with np.load(nminusone_compressed) as file:
+            assert np.all(file["labels"] == labels)
+            assert np.all(file["nev"] == nev)
+            assert np.all(file["masks"] == masks)
 
     h, hlabels = nminusone.yieldhist()
 
@@ -661,23 +663,24 @@ def test_packed_selection_cutflow():
     ):
         assert np.all(mask == truth)
 
-    cutflow.to_npz("cutflow.npz", compressed=False).compute()
-    with np.load("cutflow.npz") as file:
-        assert np.all(file["labels"] == labels)
-        assert np.all(file["nevonecut"] == nevonecut)
-        assert np.all(file["nevcutflow"] == nevcutflow)
-        assert np.all(file["masksonecut"] == masksonecut)
-        assert np.all(file["maskscutflow"] == maskscutflow)
-    os.remove("cutflow.npz")
+    with tempfile.TemporaryDirectory() as tmp:
+        cutflow_uncompressed = os.path.join(tmp, 'cutflow_uncompresssed.npz')
+        cutflow.to_npz(cutflow_uncompressed, compressed=False).compute()
+        with np.load(cutflow_uncompressed) as file:
+            assert np.all(file["labels"] == labels)
+            assert np.all(file["nevonecut"] == nevonecut)
+            assert np.all(file["nevcutflow"] == nevcutflow)
+            assert np.all(file["masksonecut"] == masksonecut)
+            assert np.all(file["maskscutflow"] == maskscutflow)
 
-    cutflow.to_npz("cutflow.npz", compressed=True).compute()
-    with np.load("cutflow.npz") as file:
-        assert np.all(file["labels"] == labels)
-        assert np.all(file["nevonecut"] == nevonecut)
-        assert np.all(file["nevcutflow"] == nevcutflow)
-        assert np.all(file["masksonecut"] == masksonecut)
-        assert np.all(file["maskscutflow"] == maskscutflow)
-    os.remove("cutflow.npz")
+        cutflow_compressed = os.path.join(tmp, 'cutflow_compresssed.npz')
+        cutflow.to_npz(cutflow_compressed, compressed=True).compute()
+        with np.load(cutflow_compressed) as file:
+            assert np.all(file["labels"] == labels)
+            assert np.all(file["nevonecut"] == nevonecut)
+            assert np.all(file["nevcutflow"] == nevcutflow)
+            assert np.all(file["masksonecut"] == masksonecut)
+            assert np.all(file["maskscutflow"] == maskscutflow)
 
     honecut, hcutflow, hlabels = cutflow.yieldhist()
 
@@ -860,67 +863,68 @@ def test_packed_selection_cutflow_extended(weighted, commonmasked, withcategoric
                 r_wgtevcutflow[i], np.sum(weight.weight(r_weightsmodifier)[truth])
             )
 
-    cutflow.to_npz("cutflow.npz", compressed=False, includeweights=False).compute()
-    with np.load("cutflow.npz") as file:
-        assert np.all(file["labels"] == labels)
-        assert np.all(file["nevonecut"] == nevonecut)
-        assert np.all(file["nevcutflow"] == nevcutflow)
-        assert np.all(file["masksonecut"] == masksonecut)
-        assert np.all(file["maskscutflow"] == maskscutflow)
-        if commonmasked:
-            assert np.all(file["commonmask"] == r_commonmask)
-        else:
-            assert "commonmask" not in file
-        if weighted:
-            assert np.all(file["wgtevonecut"] == r_wgtevonecut)
-            assert np.all(file["wgtevcutflow"] == r_wgtevcutflow)
-        else:
-            assert "wgtevonecut" not in file
-            assert "wgtevcutflow" not in file
-        assert "weights" not in file
-    os.remove("cutflow.npz")
-
-    cutflow.to_npz("cutflow.npz", compressed=True).compute()
-    with np.load("cutflow.npz") as file:
-        assert np.all(file["labels"] == labels)
-        assert np.all(file["nevonecut"] == nevonecut)
-        assert np.all(file["nevcutflow"] == nevcutflow)
-        assert np.all(file["masksonecut"] == masksonecut)
-        assert np.all(file["maskscutflow"] == maskscutflow)
-        if commonmasked:
-            assert np.all(file["commonmask"] == r_commonmask)
-        else:
-            assert "commonmask" not in file
-        if weighted:
-            assert np.all(file["wgtevonecut"] == r_wgtevonecut)
-            assert np.all(file["wgtevcutflow"] == r_wgtevcutflow)
-            assert np.all(file["weights"] == r_weights.weight(r_weightsmodifier))
-        else:
-            assert "wgtevonecut" not in file
-            assert "wgtevcutflow" not in file
+    with tempfile.TemporaryDirectory() as tmp:
+        cutflow_uncompressed = os.path.join(tmp, 'cutflow_uncompresssed.npz')
+        cutflow.to_npz(cutflow_uncompressed, compressed=False, includeweights=False).compute()
+        with np.load(cutflow_uncompressed) as file:
+            assert np.all(file["labels"] == labels)
+            assert np.all(file["nevonecut"] == nevonecut)
+            assert np.all(file["nevcutflow"] == nevcutflow)
+            assert np.all(file["masksonecut"] == masksonecut)
+            assert np.all(file["maskscutflow"] == maskscutflow)
+            if commonmasked:
+                assert np.all(file["commonmask"] == r_commonmask)
+            else:
+                assert "commonmask" not in file
+            if weighted:
+                assert np.all(file["wgtevonecut"] == r_wgtevonecut)
+                assert np.all(file["wgtevcutflow"] == r_wgtevcutflow)
+            else:
+                assert "wgtevonecut" not in file
+                assert "wgtevcutflow" not in file
             assert "weights" not in file
-    os.remove("cutflow.npz")
 
-    cutflow.to_npz("cutflow.npz", compressed=True, includeweights=True).compute()
-    with np.load("cutflow.npz") as file:
-        assert np.all(file["labels"] == labels)
-        assert np.all(file["nevonecut"] == nevonecut)
-        assert np.all(file["nevcutflow"] == nevcutflow)
-        assert np.all(file["masksonecut"] == masksonecut)
-        assert np.all(file["maskscutflow"] == maskscutflow)
-        if commonmasked:
-            assert np.all(file["commonmask"] == r_commonmask)
-        else:
-            assert "commonmask" not in file
-        if weighted:
-            assert np.all(file["wgtevonecut"] == r_wgtevonecut)
-            assert np.all(file["wgtevcutflow"] == r_wgtevcutflow)
-            assert np.all(file["weights"] == r_weights.weight(r_weightsmodifier))
-        else:
-            assert "wgtevonecut" not in file
-            assert "wgtevcutflow" not in file
-            assert "weights" not in file
-    os.remove("cutflow.npz")
+        cutflow_compressed = os.path.join(tmp, 'cutflow_compressed.npz')
+        cutflow.to_npz(cutflow_compressed, compressed=True).compute()
+        with np.load(cutflow_compressed) as file:
+            assert np.all(file["labels"] == labels)
+            assert np.all(file["nevonecut"] == nevonecut)
+            assert np.all(file["nevcutflow"] == nevcutflow)
+            assert np.all(file["masksonecut"] == masksonecut)
+            assert np.all(file["maskscutflow"] == maskscutflow)
+            if commonmasked:
+                assert np.all(file["commonmask"] == r_commonmask)
+            else:
+                assert "commonmask" not in file
+            if weighted:
+                assert np.all(file["wgtevonecut"] == r_wgtevonecut)
+                assert np.all(file["wgtevcutflow"] == r_wgtevcutflow)
+                assert np.all(file["weights"] == r_weights.weight(r_weightsmodifier))
+            else:
+                assert "wgtevonecut" not in file
+                assert "wgtevcutflow" not in file
+                assert "weights" not in file
+
+        cutflow_compressed_weighted = os.path.join(tmp, 'cutflow_compresssed_weighted.npz')
+        cutflow.to_npz(cutflow_compressed_weighted, compressed=True, includeweights=True).compute()
+        with np.load(cutflow_compressed_weighted) as file:
+            assert np.all(file["labels"] == labels)
+            assert np.all(file["nevonecut"] == nevonecut)
+            assert np.all(file["nevcutflow"] == nevcutflow)
+            assert np.all(file["masksonecut"] == masksonecut)
+            assert np.all(file["maskscutflow"] == maskscutflow)
+            if commonmasked:
+                assert np.all(file["commonmask"] == r_commonmask)
+            else:
+                assert "commonmask" not in file
+            if weighted:
+                assert np.all(file["wgtevonecut"] == r_wgtevonecut)
+                assert np.all(file["wgtevcutflow"] == r_wgtevcutflow)
+                assert np.all(file["weights"] == r_weights.weight(r_weightsmodifier))
+            else:
+                assert "wgtevonecut" not in file
+                assert "wgtevcutflow" not in file
+                assert "weights" not in file
 
     honecut, hcutflow, hlabels, *optional = cutflow.yieldhist(
         weighted=weighted, categorical=categorical if withcategorical else None
@@ -1199,19 +1203,20 @@ def test_packed_selection_nminusone_dak(optimization_enabled):
         ):
             assert np.all(mask.compute() == truth.compute())
 
-        nminusone.to_npz("nminusone.npz", compressed=False).compute()
-        with np.load("nminusone.npz") as file:
-            assert np.all(file["labels"] == labels)
-            assert np.all(file["nev"] == list(dask.compute(*nev)))
-            assert np.all(file["masks"] == list(dask.compute(*masks)))
-        os.remove("nminusone.npz")
+        with tempfile.TemporaryDirectory() as tmp:
+            nminusone_uncompressed = os.path.join(tmp, 'nminusone_uncompresssed.npz')
+            nminusone.to_npz(nminusone_uncompressed, compressed=False).compute()
+            with np.load(nminusone_uncompressed) as file:
+                assert np.all(file["labels"] == labels)
+                assert np.all(file["nev"] == list(dask.compute(*nev)))
+                assert np.all(file["masks"] == list(dask.compute(*masks)))
 
-        nminusone.to_npz("nminusone.npz", compressed=True).compute()
-        with np.load("nminusone.npz") as file:
-            assert np.all(file["labels"] == labels)
-            assert np.all(file["nev"] == list(dask.compute(*nev)))
-            assert np.all(file["masks"] == list(dask.compute(*masks)))
-        os.remove("nminusone.npz")
+            nminusone_compressed = os.path.join(tmp, 'nminusone_compresssed.npz')
+            nminusone.to_npz(nminusone_compressed, compressed=True).compute()
+            with np.load(nminusone_compressed) as file:
+                assert np.all(file["labels"] == labels)
+                assert np.all(file["nev"] == list(dask.compute(*nev)))
+                assert np.all(file["masks"] == list(dask.compute(*masks)))
 
         h, hlabels = dask.compute(*nminusone.yieldhist())
 
@@ -1325,23 +1330,24 @@ def test_packed_selection_cutflow_dak(optimization_enabled):
         ):
             assert np.all(mask.compute() == truth.compute())
 
-        cutflow.to_npz("cutflow.npz", compressed=False).compute()
-        with np.load("cutflow.npz") as file:
-            assert np.all(file["labels"] == labels)
-            assert np.all(file["nevonecut"] == list(dask.compute(*nevonecut)))
-            assert np.all(file["nevcutflow"] == list(dask.compute(*nevcutflow)))
-            assert np.all(file["masksonecut"] == list(dask.compute(*masksonecut)))
-            assert np.all(file["maskscutflow"] == list(dask.compute(*maskscutflow)))
-        os.remove("cutflow.npz")
+        with tempfile.TemporaryDirectory() as tmp:
+            cutflow_uncompressed = os.path.join(tmp, 'cutflow_uncompressed.npz')
+            cutflow.to_npz(cutflow_uncompressed, compressed=False).compute()
+            with np.load(cutflow_uncompressed) as file:
+                assert np.all(file["labels"] == labels)
+                assert np.all(file["nevonecut"] == list(dask.compute(*nevonecut)))
+                assert np.all(file["nevcutflow"] == list(dask.compute(*nevcutflow)))
+                assert np.all(file["masksonecut"] == list(dask.compute(*masksonecut)))
+                assert np.all(file["maskscutflow"] == list(dask.compute(*maskscutflow)))
 
-        cutflow.to_npz("cutflow.npz", compressed=True).compute()
-        with np.load("cutflow.npz") as file:
-            assert np.all(file["labels"] == labels)
-            assert np.all(file["nevonecut"] == list(dask.compute(*nevonecut)))
-            assert np.all(file["nevcutflow"] == list(dask.compute(*nevcutflow)))
-            assert np.all(file["masksonecut"] == list(dask.compute(*masksonecut)))
-            assert np.all(file["maskscutflow"] == list(dask.compute(*maskscutflow)))
-        os.remove("cutflow.npz")
+            cutflow_compressed = os.path.join(tmp, 'cutflow_compressed.npz')
+            cutflow.to_npz(cutflow_compressed, compressed=True).compute()
+            with np.load(cutflow_compressed) as file:
+                assert np.all(file["labels"] == labels)
+                assert np.all(file["nevonecut"] == list(dask.compute(*nevonecut)))
+                assert np.all(file["nevcutflow"] == list(dask.compute(*nevcutflow)))
+                assert np.all(file["masksonecut"] == list(dask.compute(*masksonecut)))
+                assert np.all(file["maskscutflow"] == list(dask.compute(*maskscutflow)))
 
         honecut, hcutflow, hlabels = dask.compute(*cutflow.yieldhist())
 
@@ -1568,77 +1574,78 @@ def test_packed_selection_cutflow_extended_dak(
                     dak.sum(weight.weight(r_weightsmodifier)[truth]).compute(),
                 )
 
-        cutflow.to_npz("cutflow.npz", compressed=False, includeweights=False).compute()
-        with np.load("cutflow.npz") as file:
-            assert np.all(file["labels"] == labels)
-            assert np.all(file["nevonecut"] == list(dask.compute(*nevonecut)))
-            assert np.all(file["nevcutflow"] == list(dask.compute(*nevcutflow)))
-            assert np.all(file["masksonecut"] == list(dask.compute(*masksonecut)))
-            assert np.all(file["maskscutflow"] == list(dask.compute(*maskscutflow)))
-            if commonmasked:
-                assert np.all(file["commonmask"] == r_commonmask.compute())
-            else:
-                assert "commonmask" not in file
-            if weighted:
-                assert np.all(file["wgtevonecut"] == list(dask.compute(*r_wgtevonecut)))
-                assert np.all(
-                    file["wgtevcutflow"] == list(dask.compute(*r_wgtevcutflow))
-                )
-            else:
-                assert "wgtevonecut" not in file
-                assert "wgtevcutflow" not in file
-            assert "weights" not in file
-        os.remove("cutflow.npz")
-
-        cutflow.to_npz("cutflow.npz", compressed=True).compute()
-        with np.load("cutflow.npz") as file:
-            assert np.all(file["labels"] == labels)
-            assert np.all(file["nevonecut"] == list(dask.compute(*nevonecut)))
-            assert np.all(file["nevcutflow"] == list(dask.compute(*nevcutflow)))
-            assert np.all(file["masksonecut"] == list(dask.compute(*masksonecut)))
-            assert np.all(file["maskscutflow"] == list(dask.compute(*maskscutflow)))
-            if commonmasked:
-                assert np.all(file["commonmask"] == r_commonmask.compute())
-            else:
-                assert "commonmask" not in file
-            if weighted:
-                assert np.all(file["wgtevonecut"] == list(dask.compute(*r_wgtevonecut)))
-                assert np.all(
-                    file["wgtevcutflow"] == list(dask.compute(*r_wgtevcutflow))
-                )
-                assert np.all(
-                    file["weights"] == r_weights.weight(r_weightsmodifier).compute()
-                )
-            else:
-                assert "wgtevonecut" not in file
-                assert "wgtevcutflow" not in file
+        with tempfile.TemporaryDirectory() as tmp:
+            cutflow_uncompressed = os.path.join(tmp, 'cutflow_uncompresssed.npz')
+            cutflow.to_npz(cutflow_uncompressed, compressed=False, includeweights=False).compute()
+            with np.load(cutflow_uncompressed) as file:
+                assert np.all(file["labels"] == labels)
+                assert np.all(file["nevonecut"] == list(dask.compute(*nevonecut)))
+                assert np.all(file["nevcutflow"] == list(dask.compute(*nevcutflow)))
+                assert np.all(file["masksonecut"] == list(dask.compute(*masksonecut)))
+                assert np.all(file["maskscutflow"] == list(dask.compute(*maskscutflow)))
+                if commonmasked:
+                    assert np.all(file["commonmask"] == r_commonmask.compute())
+                else:
+                    assert "commonmask" not in file
+                if weighted:
+                    assert np.all(file["wgtevonecut"] == list(dask.compute(*r_wgtevonecut)))
+                    assert np.all(
+                        file["wgtevcutflow"] == list(dask.compute(*r_wgtevcutflow))
+                    )
+                else:
+                    assert "wgtevonecut" not in file
+                    assert "wgtevcutflow" not in file
                 assert "weights" not in file
-        os.remove("cutflow.npz")
 
-        cutflow.to_npz("cutflow.npz", compressed=True, includeweights=True).compute()
-        with np.load("cutflow.npz") as file:
-            assert np.all(file["labels"] == labels)
-            assert np.all(file["nevonecut"] == list(dask.compute(*nevonecut)))
-            assert np.all(file["nevcutflow"] == list(dask.compute(*nevcutflow)))
-            assert np.all(file["masksonecut"] == list(dask.compute(*masksonecut)))
-            assert np.all(file["maskscutflow"] == list(dask.compute(*maskscutflow)))
-            if commonmasked:
-                assert np.all(file["commonmask"] == r_commonmask.compute())
-            else:
-                assert "commonmask" not in file
-            if weighted:
-                assert np.all(file["wgtevonecut"] == list(dask.compute(*r_wgtevonecut)))
-                assert np.all(
-                    file["wgtevcutflow"] == list(dask.compute(*r_wgtevcutflow))
-                )
-                assert np.all(
-                    file["weights"] == r_weights.weight(r_weightsmodifier).compute()
-                )
-            else:
-                assert "wgtevonecut" not in file
-                assert "wgtevcutflow" not in file
-                assert "weights" not in file
-        os.remove("cutflow.npz")
+            cutflow_compressed = os.path.join(tmp, 'cutflow_compresssed.npz')
+            cutflow.to_npz(cutflow_compressed, compressed=True).compute()
+            with np.load(cutflow_compressed) as file:
+                assert np.all(file["labels"] == labels)
+                assert np.all(file["nevonecut"] == list(dask.compute(*nevonecut)))
+                assert np.all(file["nevcutflow"] == list(dask.compute(*nevcutflow)))
+                assert np.all(file["masksonecut"] == list(dask.compute(*masksonecut)))
+                assert np.all(file["maskscutflow"] == list(dask.compute(*maskscutflow)))
+                if commonmasked:
+                    assert np.all(file["commonmask"] == r_commonmask.compute())
+                else:
+                    assert "commonmask" not in file
+                if weighted:
+                    assert np.all(file["wgtevonecut"] == list(dask.compute(*r_wgtevonecut)))
+                    assert np.all(
+                        file["wgtevcutflow"] == list(dask.compute(*r_wgtevcutflow))
+                    )
+                    assert np.all(
+                        file["weights"] == r_weights.weight(r_weightsmodifier).compute()
+                    )
+                else:
+                    assert "wgtevonecut" not in file
+                    assert "wgtevcutflow" not in file
+                    assert "weights" not in file
+
+            cutflow_compressed_weighted = os.path.join(tmp, 'cutflow_compresssed_weighted.npz')
+            cutflow.to_npz(cutflow_compressed_weighted, compressed=True, includeweights=True).compute()
+            with np.load(cutflow_compressed_weighted) as file:
+                assert np.all(file["labels"] == labels)
+                assert np.all(file["nevonecut"] == list(dask.compute(*nevonecut)))
+                assert np.all(file["nevcutflow"] == list(dask.compute(*nevcutflow)))
+                assert np.all(file["masksonecut"] == list(dask.compute(*masksonecut)))
+                assert np.all(file["maskscutflow"] == list(dask.compute(*maskscutflow)))
+                if commonmasked:
+                    assert np.all(file["commonmask"] == r_commonmask.compute())
+                else:
+                    assert "commonmask" not in file
+                if weighted:
+                    assert np.all(file["wgtevonecut"] == list(dask.compute(*r_wgtevonecut)))
+                    assert np.all(
+                        file["wgtevcutflow"] == list(dask.compute(*r_wgtevcutflow))
+                    )
+                    assert np.all(
+                        file["weights"] == r_weights.weight(r_weightsmodifier).compute()
+                    )
+                else:
+                    assert "wgtevonecut" not in file
+                    assert "wgtevcutflow" not in file
+                    assert "weights" not in file
 
         honecut, hcutflow, hlabels, *optional = dask.compute(
             *cutflow.yieldhist(
@@ -1809,19 +1816,20 @@ def test_packed_selection_nminusone_dak_uproot_only(optimization_enabled):
         ):
             assert np.all(mask.compute() == truth.compute())
 
-        nminusone.to_npz("nminusone.npz", compressed=False).compute()
-        with np.load("nminusone.npz") as file:
-            assert np.all(file["labels"] == labels)
-            assert np.all(file["nev"] == list(dask.compute(*nev)))
-            assert np.all(file["masks"] == list(dask.compute(*masks)))
-        os.remove("nminusone.npz")
+        with tempfile.TemporaryDirectory() as tmp:
+            nminusone_uncompressed = os.path.join(tmp, 'nminusone_uncompresssed.npz')
+            nminusone.to_npz(nminusone_uncompressed, compressed=False).compute()
+            with np.load(nminusone_uncompressed) as file:
+                assert np.all(file["labels"] == labels)
+                assert np.all(file["nev"] == list(dask.compute(*nev)))
+                assert np.all(file["masks"] == list(dask.compute(*masks)))
 
-        nminusone.to_npz("nminusone.npz", compressed=True).compute()
-        with np.load("nminusone.npz") as file:
-            assert np.all(file["labels"] == labels)
-            assert np.all(file["nev"] == list(dask.compute(*nev)))
-            assert np.all(file["masks"] == list(dask.compute(*masks)))
-        os.remove("nminusone.npz")
+            nminusone_compressed = os.path.join(tmp, 'nminusone_compresssed.npz')
+            nminusone.to_npz(nminusone_compressed, compressed=True).compute()
+            with np.load(nminusone_compressed) as file:
+                assert np.all(file["labels"] == labels)
+                assert np.all(file["nev"] == list(dask.compute(*nev)))
+                assert np.all(file["masks"] == list(dask.compute(*masks)))
 
         h, hlabels = dask.compute(*nminusone.yieldhist())
 
@@ -1935,23 +1943,24 @@ def test_packed_selection_cutflow_dak_uproot_only(optimization_enabled):
         ):
             assert np.all(mask.compute() == truth.compute())
 
-        cutflow.to_npz("cutflow.npz", compressed=False).compute()
-        with np.load("cutflow.npz") as file:
-            assert np.all(file["labels"] == labels)
-            assert np.all(file["nevonecut"] == list(dask.compute(*nevonecut)))
-            assert np.all(file["nevcutflow"] == list(dask.compute(*nevcutflow)))
-            assert np.all(file["masksonecut"] == list(dask.compute(*masksonecut)))
-            assert np.all(file["maskscutflow"] == list(dask.compute(*maskscutflow)))
-        os.remove("cutflow.npz")
+        with tempfile.TemporaryDirectory() as tmp:
+            cutflow_uncompressed = os.path.join(tmp, 'cutflow_uncompresssed.npz')
+            cutflow.to_npz(cutflow_uncompressed, compressed=False).compute()
+            with np.load(cutflow_uncompressed) as file:
+                assert np.all(file["labels"] == labels)
+                assert np.all(file["nevonecut"] == list(dask.compute(*nevonecut)))
+                assert np.all(file["nevcutflow"] == list(dask.compute(*nevcutflow)))
+                assert np.all(file["masksonecut"] == list(dask.compute(*masksonecut)))
+                assert np.all(file["maskscutflow"] == list(dask.compute(*maskscutflow)))
 
-        cutflow.to_npz("cutflow.npz", compressed=True).compute()
-        with np.load("cutflow.npz") as file:
-            assert np.all(file["labels"] == labels)
-            assert np.all(file["nevonecut"] == list(dask.compute(*nevonecut)))
-            assert np.all(file["nevcutflow"] == list(dask.compute(*nevcutflow)))
-            assert np.all(file["masksonecut"] == list(dask.compute(*masksonecut)))
-            assert np.all(file["maskscutflow"] == list(dask.compute(*maskscutflow)))
-        os.remove("cutflow.npz")
+            cutflow_compressed = os.path.join(tmp, 'cutflow_compresssed.npz')
+            cutflow.to_npz(cutflow_compressed, compressed=True).compute()
+            with np.load(cutflow_compressed) as file:
+                assert np.all(file["labels"] == labels)
+                assert np.all(file["nevonecut"] == list(dask.compute(*nevonecut)))
+                assert np.all(file["nevcutflow"] == list(dask.compute(*nevcutflow)))
+                assert np.all(file["masksonecut"] == list(dask.compute(*masksonecut)))
+                assert np.all(file["maskscutflow"] == list(dask.compute(*maskscutflow)))
 
         honecut, hcutflow, hlabels = dask.compute(*cutflow.yieldhist())
 
