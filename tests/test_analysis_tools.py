@@ -1496,23 +1496,53 @@ def test_packed_selection_cutflow_extended_dak(
             ) = (None, None, None, None, None)
 
         onecut_truths = [nomuon, twoelectron, leadpt20]
+        cutflow_truths = [nomuon, nomuon & twoelectron, nomuon & twoelectron & leadpt20]
+        honecuts_truths = [np.ones(40, dtype=bool), nomuon, twoelectron, leadpt20]
+        hcutflows_truths = [
+            np.ones(40, dtype=bool),
+            nomuon,
+            nomuon & twoelectron,
+            nomuon & twoelectron & leadpt20,
+        ]
         if commonmasked:
             onecut_truths = [truth & commonmask for truth in onecut_truths]
-
-        cutflow_truths = [nomuon, nomuon & twoelectron, nomuon & twoelectron & leadpt20]
-        if commonmasked:
             cutflow_truths = [truth & commonmask for truth in cutflow_truths]
+            honecuts_truths = [truth & commonmask for truth in honecuts_truths]
+            hcutflows_truths = [truth & commonmask for truth in hcutflows_truths]
 
         honecut, hcutflow, hlabels, *catlabel = cutflow.yieldhist(
             weighted=weighted,
             categorical=categorical if withcategorical else None,
         )
 
+        honecuts_fill_arrays = {"ept": [], "ephi": []}
+        honecuts_fill_weights = {"ept": [], "ephi": []}
+        hcutflows_fill_arrays = {"ept": [], "ephi": []}
+        hcutflows_fill_weights = {"ept": [], "ephi": []}
+        array_dict = {"ept": events.Electron.pt, "ephi": events.Electron.phi}
         honecuts, hcutflows, hslabels, *catlabels = cutflow.plot_vars(
-            {"ept": events.Electron.pt, "ephi": events.Electron.phi},
+            array_dict,
             weighted=weighted,
             categorical=categorical if withcategorical else None,
         )
+
+        for varname, array in array_dict.items():
+            for i, truth in enumerate(honecuts_truths):
+                fill_array, fill_weights = dak.broadcast_arrays(array[truth], weight.weight(r_weightsmodifier)[truth])
+                honecuts_fill_arrays[varname].append(dak.flatten(fill_array))
+                honecuts_fill_weights[varname].append(dak.flatten(fill_weights))
+
+        for varname, array in array_dict.items():
+            for i, truth in enumerate(hcutflows_truths):
+                fill_array, fill_weights = dak.broadcast_arrays(array[truth], weight.weight(r_weightsmodifier)[truth])
+                hcutflows_fill_arrays[varname].append(dak.flatten(fill_array))
+                hcutflows_fill_weights[varname].append(dak.flatten(fill_weights))
+
+        # Ensure key alignment
+        assert array_dict.keys() == honecuts_fill_arrays.keys()
+        assert array_dict.keys() == hcutflows_fill_arrays.keys()
+        assert array_dict.keys() == honecuts_fill_weights.keys()
+        assert array_dict.keys() == hcutflows_fill_weights.keys()
 
         # Compute all values for comparisons and assertions
         to_compute = {
@@ -1581,8 +1611,12 @@ def test_packed_selection_cutflow_extended_dak(
             "hcutflows": hcutflows,
             "hslabels": hslabels, 
             "catlabels": catlabels,
-
+            "honecuts_fill_arrays": honecuts_fill_arrays,
+            "honecuts_fill_weights": honecuts_fill_weights,
+            "hcutflows_fill_arrays": hcutflows_fill_arrays,
+            "hcutflows_fill_weights": hcutflows_fill_weights,
         }
+
         computed = dask.compute(to_compute)[0]
         computed_nevonecut = computed["nevonecut"]
         computed_nevcutflow = computed["nevcutflow"]
@@ -1605,6 +1639,10 @@ def test_packed_selection_cutflow_extended_dak(
         computed_hcutflows = computed["hcutflows"]
         computed_hslabels = computed["hslabels"]
         computed_catlabels = computed["catlabels"]
+        computed_honecuts_fill_arrays = computed["honecuts_fill_arrays"]
+        computed_honecuts_fill_weights = computed["honecuts_fill_weights"]
+        computed_hcutflows_fill_arrays = computed["hcutflows_fill_arrays"]
+        computed_hcutflows_fill_weights = computed["hcutflows_fill_weights"]
 
         
 
@@ -1765,48 +1803,29 @@ def test_packed_selection_cutflow_extended_dak(
         if withcategorical:
             assert computed_catlabels[0] == ["0", "41", "43"]
 
-        honecuts_truths = [np.ones(40, dtype=bool), nomuon, twoelectron, leadpt20]
-        if commonmasked:
-            honecuts_truths = [truth & commonmask for truth in honecuts_truths]
-        for h, array in zip(computed_honecuts, [events.Electron.pt, events.Electron.phi]):
+        for h, computed_fill_arrays, computed_fill_weights in zip(computed_honecuts, computed_honecuts_fill_arrays.values(), computed_honecuts_fill_weights.values()):
             edges = h.axes[0].edges
             for i, truth in enumerate(honecuts_truths):
                 counts = h.project(h.axes.name[0], "onecut")[:, i].counts(flow=True)
                 counts[1] += counts[0]
                 counts[-2] += counts[-1]
-                fill_array, fill_weights = dak.broadcast_arrays(
-                    array[truth], weight.weight(r_weightsmodifier)[truth]
-                )
-                computed_fill_array, computed_fill_weights = dask.compute(dak.flatten(fill_array), dak.flatten(fill_weights))
                 c, e = np.histogram(
-                    computed_fill_array,
+                    computed_fill_arrays[i],
                     bins=edges,
-                    weights=computed_fill_weights if weighted else None,
+                    weights=computed_fill_weights[i] if weighted else None,
                 )
                 assert np.all(np.isclose(counts[1:-1], c))
 
-        hcutflows_truths = [
-            np.ones(40, dtype=bool),
-            nomuon,
-            nomuon & twoelectron,
-            nomuon & twoelectron & leadpt20,
-        ]
-        if commonmasked:
-            hcutflows_truths = [truth & commonmask for truth in hcutflows_truths]
-        for h, array in zip(computed_hcutflows, [events.Electron.pt, events.Electron.phi]):
+        for h, computed_fill_arrays, computed_fill_weights in zip(computed_hcutflows, computed_hcutflows_fill_arrays.values(), computed_hcutflows_fill_weights.values()):
             edges = h.axes[0].edges
             for i, truth in enumerate(hcutflows_truths):
                 counts = h.project(h.axes.name[0], "cutflow")[:, i].counts(flow=True)
                 counts[1] += counts[0]
                 counts[-2] += counts[-1]
-                fill_array, fill_weights = dak.broadcast_arrays(
-                    array[truth], weight.weight(r_weightsmodifier)[truth]
-                )
-                computed_fill_array, computed_fill_weights = dask.compute(dak.flatten(fill_array), dak.flatten(fill_weights))
                 c, e = np.histogram(
-                    computed_fill_array,
+                    computed_fill_arrays[i],
                     bins=edges,
-                    weights=computed_fill_weights if weighted else None,
+                    weights=computed_fill_weights[i] if weighted else None,
                 )
                 assert np.all(np.isclose(counts[1:-1], c))
 
