@@ -24,10 +24,7 @@ _idxs = re.compile(r".*[\#]+.*")
 # Example: 'ReconstructedParticles/ReconstructedParticles.covMatrix[10]'
 _square_braces = re.compile(r".*\[.*\]")
 
-
-__dask_capable__ = True
-
-
+# Helper functions
 def sort_dict(d):
     """Sort a dictionary by key"""
     return {k: d[k] for k in sorted(d)}
@@ -81,27 +78,13 @@ class FCCSchema(BaseSchema):
 
     __dask_capable__ = True
 
-    # mixins_dictionary = {
-    #     "Electron": "ReconstructedParticle",
-    #     "Muon": "ReconstructedParticle",
-    #     "AllMuon": "ReconstructedParticle",
-    #     "EFlowNeutralHadron": "Cluster",
-    #     "Particle": "MCParticle",
-    #     "Photon": "ReconstructedParticle",
-    #     "ReconstructedParticles": "ReconstructedParticle",
-    #     "EFlowPhoton": "Cluster",
-    #     "MCRecoAssociations": "RecoMCParticleLink",
-    #     "MissingET": "ReconstructedParticle",
-    #     "ParticleIDs": "ParticleID",
-    #     "Jet": "ReconstructedParticle",
-    #     "EFlowTrack": "Track",
-    #     "*idx": "ObjectID",
-    # }
-
+    # Datatype mixins are generated at runtime
+    # can define extra mixins to add to that
     extra_mixins = {
         "*idx": "ObjectID",
     }
 
+    # For vector behaviors to work, have to rename branches
     _momentum_fields_e = {
         "energy": "E",
         "momentum.x": "px",
@@ -110,6 +93,8 @@ class FCCSchema(BaseSchema):
     }
     _replacement = {**_momentum_fields_e}
 
+    # Manually name the subbranches of all the components
+    # Components that correspond to 3 vector types
     _threevec_fields = {
         "position": ["position.x", "position.y", "position.z"],
         "directionError": ["directionError.x", "directionError.y", "directionError.z"],
@@ -124,7 +109,9 @@ class FCCSchema(BaseSchema):
         "spin": ["spin.x", "spin.y", "spin.z"],
     }
 
+    # Cross-References are the branches that we want to make available in a target collection
     # Cross-References : format: {<index branch name> : <target collection name>}
+    # <index branch name> is copied into the <target collection name>
     all_cross_references = {
         "MCRecoAssociations#1.index": "Particle",  # MC to Reco connection
         "MCRecoAssociations#0.index": "ReconstructedParticles",  # Reco to MC connection
@@ -132,11 +119,14 @@ class FCCSchema(BaseSchema):
         "Electron#0.index": "ReconstructedParticles",  # Matched Electrons
     }
 
+    # Manually list the mc branches that are OneToManyRelation to themselves
+    # which are the parents and daughters indexes
     mc_relations = {"parents": "Particle#0.index", "daughters": "Particle#1.index"}
 
     def __init__(self, base_form, version="latest"):
         super().__init__(base_form)
 
+        # Detect Collection Datatypes and create a datatype mixin
         self._create_mixin(base_form)
 
         self._form["fields"], self._form["contents"] = self._build_collections(
@@ -487,12 +477,12 @@ class FCCSchema(BaseSchema):
                 if k.endswith("end")
             ]
 
-            # Create counts from begin and end by subtracting them
-            counts_content = {
-                "begin_end_counts": transforms.begin_and_end_to_counts_form(
-                    *begin, *end
-                )
-            }
+            # # Create counts from begin and end by subtracting them
+            # counts_content = {
+            #     "begin_end_counts": transforms.begin_and_end_to_counts_form(
+            #         *begin, *end
+            #     )
+            # }
 
             # Generate Parents and Daughters global indexers
             ranges_content = {}
@@ -500,11 +490,14 @@ class FCCSchema(BaseSchema):
                 col_name = target.split(".")[0]
                 if name.endswith(key):
                     range_name = f"{col_name.replace('#','idx')}_ranges"
-                    ranges_content[range_name + "G"] = transforms.index_range_form(
+                    ranges_content[range_name] = transforms.begin_end_mapping_form(
                         *begin, *end, branch_forms[f"{col_name}/{target}"]
                     )
+                    ranges_content[range_name + "G"] = transforms.nested_local2global_form(
+                        ranges_content[range_name] , offset_form
+                    )
 
-            to_zip = {**begin_end_content, **counts_content, **ranges_content}
+            to_zip = {**begin_end_content, **ranges_content}
 
             branch_forms[name] = zip_forms(sort_dict(to_zip), name, offsets=offset_form)
 
@@ -650,32 +643,25 @@ class FCCSchema_edm4hep1(EDM4HEPSchema):
     https://fcc-physics-events.web.cern.ch/
 
     This schema supports FCC samples produced with edm4hep version >= 1. It inherits
-    from the EDM4HEPSchema and adds a few more functionality.
+    from the EDM4HEPSchema version 00.99.01 and adds more functionality on top of it.
 
-    For more info, check EDM4HEPSchema
+    For more info, check coffea.nanoevents.schemas.EDM4HEPSchema
     """
 
-    # _datatype_mixins = {
-    #     "CalorimeterHits": "CalorimeterHit",
-    #     "EFlowNeutralHadron": "Cluster",
-    #     "EFlowPhoton": "Cluster",
-    #     "EFlowTrack": "Track",
-    #     "EFlowTrack_dNdx": "RecDqdx",
-    #     "Electron_objIdx": "ObjectID",
-    #     "EventHeader": "EventHeader",
-    #     "Jet": "ReconstructedParticle",
-    #     "MCRecoAssociations": "RecoMCParticleLink",
-    #     "Muon_objIdx": "ObjectID",
-    #     "Particle": "MCParticle",
-    #     "ParticleIDs": "ParticleID",
-    #     "Photon_objIdx": "ObjectID",
-    #     "ReconstructedParticles": "ReconstructedParticle",
-    #     "TrackerHits": "TrackerHit3D",
-    # }
-
+    # By default, the schema does not copy the links to their target datatype collections
+    # This is due to the fact that we may many collections with the same datatype
+    # and not all of the collections are compatible to be copied
+    # This bool can be set true in a daughter class where we know which link has which
+    # target collection
     copy_links_to_target_datatype = True
 
     # Which collection to match if there are multiple matching collections for a given datatype
+    # If copy_links_to_target_datatype = True
+    # Which collection to match if there are multiple matching collections for a given datatype
+    # For example: Two collections ReconstructedParticles and Jet could have the same
+    # datatype edm4hep::ReconstructedParticle , but ReconstructedParticles should be the only collection
+    # that associated links should point to.
+    # In such a case, one defines _datatype_priority = {'ReconstructedParticle' : 'ReconstructedParticles' }
     _datatype_priority = {"ReconstructedParticle": "ReconstructedParticles"}
 
     @classmethod

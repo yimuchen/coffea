@@ -9,6 +9,7 @@ behavior.update(base.behavior)
 
 
 class _FCCEvents(behavior["NanoEvents"]):
+    '''FCCEvents'''
     def __repr__(self):
         return "FCC Events"
 
@@ -27,7 +28,7 @@ def _set_repr_name(classname):
 class MomentumCandidate(vector.LorentzVector):
     """A Lorentz vector with charge
 
-    This mixin class requires the parent class to provide items `px`, `py`, `pz`, `E`, and `charge`.
+    This mixin class requires the parent class to provide the items `px`, `py`, `pz`, `E`, and `charge`.
     """
 
     @awkward.mixin_class_method(numpy.add, {"MomentumCandidate"})
