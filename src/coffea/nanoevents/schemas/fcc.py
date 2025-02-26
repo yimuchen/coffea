@@ -24,6 +24,7 @@ _idxs = re.compile(r".*[\#]+.*")
 # Example: 'ReconstructedParticles/ReconstructedParticles.covMatrix[10]'
 _square_braces = re.compile(r".*\[.*\]")
 
+
 # Helper functions
 def sort_dict(d):
     """Sort a dictionary by key"""
@@ -315,7 +316,7 @@ class FCCSchema(BaseSchema):
 
     def _trailing_underscore_collections(self, output, branch_forms, all_collections):
         """
-        Create collection with branches have a trailing underscore followed by a integer '*_[0-9]'
+        Create collection with branches that have a trailing underscore followed by a integer '*_[0-9]'
         Example:
             "EFlowTrack_1/EFlowTrack_1.location",
             "EFlowTrack_1/EFlowTrack_1.D0",
@@ -335,18 +336,14 @@ class FCCSchema(BaseSchema):
             if _trailing_under.match(collection_name)
         }
 
-        # Collection names that are trailing underscore followed by an integer but do not
-        # have any associated branches with '/', signifying that those collection names
-        # are actual singleton branches
-        singletons = {
-            collection_name
-            for collection_name in branch_forms.keys()
-            if _trailing_under.match(collection_name)
-            and not _all_collections.match(collection_name)
-        }
-
         # Zip branches of a collection that are not singletons
         for name in collections:
+            # Remove grouping branches which are generated from BaseSchema and contain no usable info
+            # Example: Along with the "Jet/Jet.type","Jet/Jet.energy",etc., BaseSchema may produce "Jet" grouping branch.
+            # It is an empty branch and needs to be removed
+            if name in branch_forms.keys():
+                branch_forms.pop(name)
+
             mixin = self.mixins_dictionary.get(name, "NanoCollection")
 
             # Contents to be zipped
@@ -366,10 +363,6 @@ class FCCSchema(BaseSchema):
                 }
             )
 
-        # Singleton branches could be assigned directly without zipping
-        for name in singletons:
-            output[name] = branch_forms.pop(name)
-
         return output, branch_forms
 
     def _unknown_collections(self, output, branch_forms, all_collections):
@@ -377,8 +370,6 @@ class FCCSchema(BaseSchema):
         Process all the unknown, empty or faulty branches that remain
         after creating all the collections.
         Should be called only after creating all the other relevant collections.
-
-        Note: It is not a neat implementation and needs more testing.
         """
         unlisted = copy.deepcopy(branch_forms)
         for name, content in unlisted.items():
@@ -392,6 +383,11 @@ class FCCSchema(BaseSchema):
                     # Remove empty branches
                     if len(content["contents"]) == 0:
                         continue
+                # If a branch is non-empty and is one of its kind (i.e. has no other associated branch)
+                # call it a singleton and assign it directly to the output
+                else:
+                    # Singleton branch
+                    output[name] = branch_forms.pop(name)
             elif content["class"] == "RecordArray":
                 # Remove empty branches
                 if len(content["contents"]) == 0:
@@ -410,10 +406,12 @@ class FCCSchema(BaseSchema):
                         for k in unlisted.keys()
                         if k.startswith(record_name + "/")
                     }
+                    if len(list(contents.keys())) == 0:
+                        continue
                     output[record_name] = zip_forms(
                         sort_dict(contents),
                         record_name,
-                        self.mixins_dictionary.get(record_name, "NanoCollection"),
+                        self._datatype_mixins.get(record_name, "NanoCollection"),
                     )
             # If a branch is non-empty and is one of its kind (i.e. has no other associated branch)
             # call it a singleton and assign it directly to the output
@@ -493,8 +491,10 @@ class FCCSchema(BaseSchema):
                     ranges_content[range_name] = transforms.begin_end_mapping_form(
                         *begin, *end, branch_forms[f"{col_name}/{target}"]
                     )
-                    ranges_content[range_name + "G"] = transforms.nested_local2global_form(
-                        ranges_content[range_name] , offset_form
+                    ranges_content[range_name + "G"] = (
+                        transforms.nested_local2global_form(
+                            ranges_content[range_name], offset_form
+                        )
                     )
 
             to_zip = {**begin_end_content, **ranges_content}

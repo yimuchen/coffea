@@ -10,7 +10,8 @@ behavior.update(base.behavior)
 
 
 class _EDM4HEPEvents(behavior["NanoEvents"]):
-    '''EDM4HEP Events'''
+    """EDM4HEP Events"""
+
     def __repr__(self):
         return "EDM4HEP-Event"
 
@@ -31,7 +32,7 @@ class edm4hep_nanocollection(base.NanoCollection):
 
     @dask_method
     def _apply_nested_global_index(self, index):
-        '''Similar to _apply_global_index but the indexes are twice nested'''
+        """Similar to _apply_global_index but the indexes are twice nested"""
         # extract the shape of the index
         counts1 = awkward.num(index, axis=1)
         counts2 = awkward.flatten(awkward.num(index, axis=2), axis=1)
@@ -51,7 +52,7 @@ class edm4hep_nanocollection(base.NanoCollection):
 
     @_apply_nested_global_index.dask
     def _apply_nested_global_index(self, dask_array, index):
-        '''Similar to _apply_global_index but the indexes are twice nested'''
+        """Similar to _apply_global_index but the indexes are twice nested"""
         return dask_array.map_partitions(
             _ClassMethodFn("_apply_nested_global_index"),
             index,
@@ -72,18 +73,18 @@ class edm4hep_nanocollection(base.NanoCollection):
 
     @dask_method
     def Map_Relation(self, generic_name, target_name):
-        '''Map a OneToOne or a OneToMany Relation to it's target collection
-            Options: generic_name | str | name of the relation in EDM4HEP.yaml
-                     target_name | str | name of the target collection
+        """Map a OneToOne or a OneToMany Relation to it's target collection
+        Options: generic_name | str | name of the relation in EDM4HEP.yaml
+                 target_name | str | name of the target collection
 
-            Note: All relation branches are named as,
-                  genericname_idx_targetname_index
-                    or
-                  genericname_idx_targetname_index_Global
-                    or
-                  genericname_idx_targetname_collectionID
-                One can list out all such braches with the method List_Relations
-        '''
+        Note: All relation branches are named as,
+              genericname_idx_targetname_index
+                or
+              genericname_idx_targetname_index_Global
+                or
+              genericname_idx_targetname_collectionID
+            One can list out all such branches with the method List_Relations
+        """
         name_struct = generic_name + "_idx_" + target_name + "_index_Global"
         idx_field_names = [name for name in self.fields if name_struct in name]
         if len(idx_field_names) == 0:
@@ -103,18 +104,18 @@ class edm4hep_nanocollection(base.NanoCollection):
 
     @Map_Relation.dask
     def Map_Relation(self, dask_array, generic_name, target_name):
-        '''Map a OneToOne or a OneToMany Relation to it's target collection
-            Options: generic_name | str | name of the relation in EDM4HEP.yaml
-                     target_name | str | name of the target collection
+        """Map a OneToOne or a OneToMany Relation to it's target collection
+        Options: generic_name | str | name of the relation in EDM4HEP.yaml
+                 target_name | str | name of the target collection
 
-            Note: All relation branches are named as,
-                  genericname_idx_targetname_index
-                    or
-                  genericname_idx_targetname_index_Global
-                    or
-                  genericname_idx_targetname_collectionID
-                One can list out all such braches with the method List_Relations
-        '''
+        Note: All relation branches are named as,
+              genericname_idx_targetname_index
+                or
+              genericname_idx_targetname_index_Global
+                or
+              genericname_idx_targetname_collectionID
+            One can list out all such branches with the method List_Relations
+        """
         name_struct = generic_name + "_idx_" + target_name + "_index_Global"
         idx_field_names = [name for name in dask_array.fields if name_struct in name]
         if len(idx_field_names) == 0:
@@ -154,19 +155,19 @@ class edm4hep_nanocollection(base.NanoCollection):
 
     @dask_method
     def Map_Link(self, generic_name, target_name):
-        '''Map a Link to it's target collection
-            Note: This method only works when copy_links_to_target_datatype is set to true in the schema
-            Options: generic_name | str | name of the Link in EDM4HEP.yaml
-                     target_name | str | name of the target collection
+        """Map a Link to it's target collection
+        Note: This method only works when copy_links_to_target_datatype is set to true in the schema
+        Options: generic_name | str | name of the Link in EDM4HEP.yaml
+                 target_name | str | name of the target collection
 
-            Note: All link branches are named as,
-                  Link_from_genericname_idx_targetname_index or Link_to_genericname_idx_targetname_index
-                    or
-                  Link_from_genericname_idx_targetname_index_Global or Link_to_genericname_idx_targetname_index_Global
-                    or
-                  Link_from_genericname_idx_targetname_collectionID or Link_to_genericname_idx_targetname_collectionID
-                One can list out all such branches with the method List_Links
-        '''
+        Note: All link branches are named as,
+              Link_from_genericname_idx_targetname_index or Link_to_genericname_idx_targetname_index
+                or
+              Link_from_genericname_idx_targetname_index_Global or Link_to_genericname_idx_targetname_index_Global
+                or
+              Link_from_genericname_idx_targetname_collectionID or Link_to_genericname_idx_targetname_collectionID
+            One can list out all such branches with the method List_Links
+        """
         idx_field_name = "Link_" + generic_name + "_" + target_name
         if idx_field_name not in self.fields:
             raise FileNotFoundError(
@@ -178,19 +179,19 @@ class edm4hep_nanocollection(base.NanoCollection):
 
     @Map_Link.dask
     def Map_Link(self, dask_array, generic_name, target_name):
-        '''Map a Link to it's target collection
-            Note: This method only works when copy_links_to_target_datatype is set to true in the schema
-            Options: generic_name | str | name of the Link in EDM4HEP.yaml
-                     target_name | str | name of the target collection
+        """Map a Link to it's target collection
+        Note: This method only works when copy_links_to_target_datatype is set to true in the schema
+        Options: generic_name | str | name of the Link in EDM4HEP.yaml
+                 target_name | str | name of the target collection
 
-            Note: All link branches are named as,
-                  Link_from_genericname_idx_targetname_index or Link_to_genericname_idx_targetname_index
-                    or
-                  Link_from_genericname_idx_targetname_index_Global or Link_to_genericname_idx_targetname_index_Global
-                    or
-                  Link_from_genericname_idx_targetname_collectionID or Link_to_genericname_idx_targetname_collectionID
-                One can list out all such branches with the method List_Links
-        '''
+        Note: All link branches are named as,
+              Link_from_genericname_idx_targetname_index or Link_to_genericname_idx_targetname_index
+                or
+              Link_from_genericname_idx_targetname_index_Global or Link_to_genericname_idx_targetname_index_Global
+                or
+              Link_from_genericname_idx_targetname_collectionID or Link_to_genericname_idx_targetname_collectionID
+            One can list out all such branches with the method List_Links
+        """
         idx_field_name = "Link_" + generic_name + "_" + target_name
         if idx_field_name not in dask_array.fields:
             raise FileNotFoundError(
@@ -244,7 +245,7 @@ class MomentumCandidate(vector.LorentzVector):
 
     @property
     def absolute_mass(self):
-        '''The absolute value of the mass'''
+        """The absolute value of the mass"""
         return numpy.sqrt(numpy.abs(self.mass2))
 
 

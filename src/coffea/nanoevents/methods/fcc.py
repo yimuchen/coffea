@@ -9,7 +9,8 @@ behavior.update(base.behavior)
 
 
 class _FCCEvents(behavior["NanoEvents"]):
-    '''FCCEvents'''
+    """FCCEvents"""
+
     def __repr__(self):
         return "FCC Events"
 

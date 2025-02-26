@@ -490,7 +490,6 @@ def eventindex(stack):
 # For EDM4HEPSchema and FCCSChema:
 
 
-
 # grow_local_index_to_target_shape
 @numba.njit
 def _grow_local_index_to_target_shape_kernel(index, all_index, builder):
@@ -506,6 +505,7 @@ def _grow_local_index_to_target_shape_kernel(index, all_index, builder):
         builder.end_list()
 
     return builder
+
 
 def grow_local_index_to_target_shape_form(index, target):
     if not index["class"].startswith("ListOffset"):
@@ -523,6 +523,7 @@ def grow_local_index_to_target_shape_form(index, target):
     form["content"]["itemsize"] = 8
     form["content"]["primitive"] = "int64"
     return form
+
 
 def grow_local_index_to_target_shape(stack):
     """Grow the local index to the size of target size by replacing unreferenced indices as -1
@@ -543,7 +544,6 @@ def grow_local_index_to_target_shape(stack):
     stack.append(useable_index)
 
 
-
 # nested_local2global
 def nested_local2global(array, target_offsets_raw):
     counts2 = awkward.flatten(awkward.num(array, axis=2), axis=1)
@@ -559,6 +559,7 @@ def nested_local2global(array, target_offsets_raw):
 
     nested_global = awkward.unflatten(out, counts2, axis=0)
     return nested_global
+
 
 def nested_local2global_stack(stack):
     target_offsets_raw = stack.pop()
@@ -586,6 +587,7 @@ def nested_local2global_stack(stack):
         nested_global = awkward.unflatten(nested_global_flat, counts1, axis=0)
     stack.append(nested_global)
 
+
 def nested_local2global_form(array_form, target_offsets_form):
     if not array_form["class"].startswith("ListOffset"):
         raise RuntimeError
@@ -603,7 +605,6 @@ def nested_local2global_form(array_form, target_offsets_form):
     return form
 
 
-
 # begin_end_mapping
 @numba.njit
 def get_index_ranges_kernel(begin_end, builder):
@@ -617,6 +618,7 @@ def get_index_ranges_kernel(begin_end, builder):
         builder.end_list()
     return builder
 
+
 def get_index_ranges(begin, end):
     begin_end = awkward.concatenate(
         (begin[:, :, numpy.newaxis], end[:, :, numpy.newaxis]), axis=2
@@ -626,6 +628,7 @@ def get_index_ranges(begin, end):
     if awkward.sum(ranges) == 0:  # empty ranges, return a twice nested empty array
         ranges = begin_end[begin_end < 0]
     return ranges
+
 
 @numba.jit
 def get_array_from_indices_kernel(indices, target, builder):
@@ -638,6 +641,7 @@ def get_array_from_indices_kernel(indices, target, builder):
             builder.end_list()
         builder.end_list()
     return builder
+
 
 @numba.jit
 def get_array_from_indices_nested_target_kernel(indices, target, builder):
@@ -654,6 +658,7 @@ def get_array_from_indices_nested_target_kernel(indices, target, builder):
         builder.end_list()
     return builder
 
+
 def get_array_from_indices(indices, target):
     if target.ndim == 2:
         return get_array_from_indices_kernel(
@@ -665,6 +670,7 @@ def get_array_from_indices(indices, target):
         ).snapshot()
     else:
         raise RuntimeError(f"Target array \n\t{target}\n is highly nested.")
+
 
 def begin_end_mapping(stack):
     target = stack.pop()
@@ -680,6 +686,7 @@ def begin_end_mapping(stack):
         else:  # The usual case when both of the indices and target are non-empty
             out = get_array_from_indices(awkward.fill_none(indices, -1), target)
     stack.append(out)
+
 
 def begin_end_mapping_form(begin_form, end_form, target_form):
     if not begin_form["class"].startswith("ListOffset"):
@@ -716,7 +723,6 @@ def begin_end_mapping_form(begin_form, end_form, target_form):
     )  # Content
 
     return form
-
 
 
 # begin_end_mapping_nested_target
@@ -763,7 +769,6 @@ def begin_end_mapping_nested_target_form(begin_form, end_form, target_form):
     return form
 
 
-
 # begin_end_mapping_with_xyzrecord
 @numba.jit
 def get_array_from_indices_xyzrecord_target_kernel(indices, target, builder):
@@ -781,10 +786,12 @@ def get_array_from_indices_xyzrecord_target_kernel(indices, target, builder):
         builder.end_list()
     return builder
 
+
 def get_array_from_indices_xyzrecord_target(indices, target):
     return get_array_from_indices_xyzrecord_target_kernel(
         indices, target, awkward.ArrayBuilder()
     ).snapshot()
+
 
 def begin_end_mapping_with_xyzrecord(stack):
     target = stack.pop()
@@ -803,6 +810,7 @@ def begin_end_mapping_with_xyzrecord(stack):
             else:  # The usual case when both of the indices and target are non-empty
                 out = get_array_from_indices_xyzrecord_target(indices, target)
     stack.append(out)
+
 
 def begin_end_mapping_with_xyzrecord_form(begin_form, end_form, target_form):
     if not begin_form["class"].startswith("ListOffset"):
