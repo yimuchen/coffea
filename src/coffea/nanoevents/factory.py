@@ -206,7 +206,7 @@ class _map_schema_parquet(_map_schema_base):
         return awkward.forms.form.from_dict(self.schemaclass(lform, self.version).form)
 
 
-allowed_modes = frozenset(["eager", "virtual", "dask"])
+_allowed_modes = frozenset(["eager", "virtual", "dask"])
 
 
 class NanoEventsFactory:
@@ -218,8 +218,8 @@ class NanoEventsFactory:
     """
 
     def __init__(self, schema, mapping, partition_key, cache=None, mode="eager"):
-        if mode not in allowed_modes:
-            raise ValueError(f"Invalid mode {mode}, valid modes are {allowed_modes}")
+        if mode not in _allowed_modes:
+            raise ValueError(f"Invalid mode {mode}, valid modes are {_allowed_modes}")
         self._mode = mode
         self._schema = schema
         self._mapping = mapping
@@ -258,7 +258,7 @@ class NanoEventsFactory:
         iteritems_options={},
         use_ak_forth=True,
         delayed=True,  # deprecated
-        mode=None,  # mode takes precedence over delayed
+        mode=uproot._util.unset,  # mode takes precedence over delayed
         known_base_form=None,
         decompression_executor=None,
         interpretation_executor=None,
@@ -321,7 +321,7 @@ class NanoEventsFactory:
             """
             )
 
-        if mode is None:
+        if mode is uproot._util.unset:
             deprecate(
                 RuntimeError(
                     "The 'delayed' argument is deprecated, please use 'mode' instead. "
@@ -329,10 +329,10 @@ class NanoEventsFactory:
                 ),
                 "<unknown>",
             )
-            mode = "dask" if delayed else "virtual"
+            mode = "dask" if delayed else "eager"
 
-        if mode not in allowed_modes:
-            raise ValueError(f"Invalid mode {mode}, valid modes are {allowed_modes}")
+        if mode not in _allowed_modes:
+            raise ValueError(f"Invalid mode {mode}, valid modes are {_allowed_modes}")
 
         if mode == "dask" and steps_per_file is not uproot._util.unset:
             warnings.warn(
@@ -509,8 +509,8 @@ class NanoEventsFactory:
             )
             mode = "dask" if delayed else "virtual"
 
-        if mode not in allowed_modes:
-            raise ValueError(f"Invalid mode {mode}, valid modes are {allowed_modes}")
+        if mode not in _allowed_modes:
+            raise ValueError(f"Invalid mode {mode}, valid modes are {_allowed_modes}")
 
         if (
             mode == "dask"
