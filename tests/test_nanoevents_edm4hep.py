@@ -1,12 +1,11 @@
 import os
-from re import A
 
 import pytest
 
 from coffea.nanoevents import EDM4HEPSchema, NanoEventsFactory
 
-
 # Basic Tests
+
 
 def _events(**kwargs):
     # Original sample generated from key4hep workflow
