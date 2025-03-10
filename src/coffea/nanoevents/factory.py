@@ -2,9 +2,9 @@ import io
 import pathlib
 import warnings
 import weakref
+from collections.abc import Mapping
 from functools import partial
 from types import FunctionType
-from collections.abc import Mapping
 
 import awkward
 import dask_awkward

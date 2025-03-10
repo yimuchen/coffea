@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import copy
-from typing import Any, Callable, Union
 from collections.abc import Hashable
+from typing import Any, Callable, Union
 
 import awkward
 import dask.base
