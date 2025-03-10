@@ -6,7 +6,8 @@ import math
 import warnings
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Callable, Dict, Hashable
+from typing import Any, Callable
+from collections.abc import Hashable
 
 import awkward
 import dask
@@ -217,8 +218,8 @@ class DatasetSpecOptional(DatasetSpec):
     )
 
 
-FilesetSpecOptional = Dict[str, DatasetSpecOptional]
-FilesetSpec = Dict[str, DatasetSpec]
+FilesetSpecOptional = dict[str, DatasetSpecOptional]
+FilesetSpec = dict[str, DatasetSpec]
 
 
 def _normalize_file_info(file_info):

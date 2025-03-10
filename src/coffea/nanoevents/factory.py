@@ -4,7 +4,7 @@ import warnings
 import weakref
 from functools import partial
 from types import FunctionType
-from typing import Mapping
+from collections.abc import Mapping
 
 import awkward
 import dask_awkward
