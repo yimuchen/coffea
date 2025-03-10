@@ -178,23 +178,19 @@ class EDM4HEPSchema(BaseSchema):
                      "00.10.02" --> corresponds to 00.10.02 version of edm4hep.yaml
                      "00.10.01" --> corresponds to 00.10.01 version of edm4hep.yaml
         """
-        match ver:  # python 3.10 syntax
-            case "latest":
-                return EDM4HEPSchema
-            case "00.99.01":
-                return EDM4HEPSchema
-            case "00.99.00":
-                return EDM4HEPSchema_v00_99_00
-            case "00.10.05":
-                return EDM4HEPSchema_v00_10_05
-            case "00.10.04":
-                return EDM4HEPSchema_v00_10_04
-            case "00.10.03":
-                return EDM4HEPSchema_v00_10_03
-            case "00.10.02":
-                return EDM4HEPSchema_v00_10_02
-            case "00.10.01":
-                return EDM4HEPSchema_v00_10_01
+        version_match = {
+            "latest":EDM4HEPSchema,
+            "00.99.01":EDM4HEPSchema,
+            "00.99.00":EDM4HEPSchema_v00_99_00,
+            "00.10.05":EDM4HEPSchema_v00_10_05,
+            "00.10.04":EDM4HEPSchema_v00_10_04,
+            "00.10.03":EDM4HEPSchema_v00_10_03,
+            "00.10.02":EDM4HEPSchema_v00_10_02,
+            "00.10.01":EDM4HEPSchema_v00_10_01,
+        }
+        schema = version_match.get(ver,None)
+        if schema is None:
+            raise ValueError("The given version {ver} is not found. Available versions are : 00.99.01,00.99.00,00.10.05,00.10.04,00.10.03,00.10.02 and 00.10.01")
 
     def _create_mixin(self, base_form):
         """Extract mixin dictionary from typename info"""
