@@ -156,7 +156,7 @@ class EDM4HEPSchema(BaseSchema):
         super().__init__(base_form)
 
         # Detect Collection Datatypes and create a datatype mixin
-        self.edm4hep = edm4hep_ver[self.edm4hep_version]
+        self.edm4hep = edm4hep_ver[self.edm4hep_version]()
         self.parsed_edm4hep = parse_yaml(self.edm4hep, copy.deepcopy(self.edm4hep))
         self._create_mixin(base_form)
 
@@ -193,6 +193,7 @@ class EDM4HEPSchema(BaseSchema):
             raise ValueError(
                 "The given version {ver} is not found. Available versions are : 00.99.01,00.99.00,00.10.05,00.10.04,00.10.03,00.10.02 and 00.10.01"
             )
+        return schema
 
     def _create_mixin(self, base_form):
         """Extract mixin dictionary from typename info"""
