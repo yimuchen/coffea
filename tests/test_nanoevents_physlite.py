@@ -84,7 +84,7 @@ def test_electron_forms():
                             "inner_shape": [],
                             "parameters": {
                                 "__doc__": "AnalysisElectronsAuxDyn.pt",
-                                "typename": "std::vector<float>"
+                                "typename": "std::vector<float>",
                             },
                             "form_key": "node3",
                         },
@@ -101,7 +101,7 @@ def test_electron_forms():
                             "inner_shape": [],
                             "parameters": {
                                 "__doc__": "AnalysisElectronsAuxDyn.eta",
-                                "typename": "std::vector<float>"
+                                "typename": "std::vector<float>",
                             },
                             "form_key": "node5",
                         },
@@ -111,7 +111,7 @@ def test_electron_forms():
                             "inner_shape": [],
                             "parameters": {
                                 "__doc__": "AnalysisElectronsAuxDyn.phi",
-                                "typename": "std::vector<float>"
+                                "typename": "std::vector<float>",
                             },
                             "form_key": "node6",
                         },
@@ -121,7 +121,7 @@ def test_electron_forms():
                             "inner_shape": [],
                             "parameters": {
                                 "__doc__": "AnalysisElectronsAuxDyn.m",
-                                "typename": "std::vector<float>"
+                                "typename": "std::vector<float>",
                             },
                             "form_key": "node7",
                         },
