@@ -1,9 +1,10 @@
+import importlib
 import os
 from functools import partial
 
 import yaml
 
-root_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = importlib.resources.files("coffea.nanoevents.assets")
 
 versions = [
     "00-10-01",

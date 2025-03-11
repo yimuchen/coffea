@@ -191,7 +191,7 @@ class EDM4HEPSchema(BaseSchema):
         schema = version_match.get(ver, None)
         if schema is None:
             raise ValueError(
-                "The given version {ver} is not found. Available versions are : 00.99.01,00.99.00,00.10.05,00.10.04,00.10.03,00.10.02 and 00.10.01"
+                f"The given version {ver} is not found. Available versions are : {', '.join(version_match.keys())} ."
             )
         return schema
 
