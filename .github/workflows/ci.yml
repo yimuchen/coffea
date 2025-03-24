@@ -71,7 +71,7 @@ jobs:
     - name: Install dependencies (Linux)
       if: matrix.os == 'ubuntu-latest'
       run: |
-        uv pip install --system --upgrade pip setuptools wheel pytest-xdist
+        uv pip install --system --upgrade pip 'setuptools!=78.0.1' wheel pytest-xdist
         # mltool installs
         # c.f. https://github.com/astral-sh/uv/issues/3437
         python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
@@ -84,7 +84,7 @@ jobs:
     - name: Install dependencies (MacOS)
       if: matrix.os == 'macOS-latest'
       run: |
-        uv pip install --system --upgrade pip setuptools wheel pytest-xdist
+        uv pip install --system --upgrade pip 'setuptools!=78.0.1' wheel pytest-xdist
         # mltool installs
         # c.f. https://github.com/astral-sh/uv/issues/3437
         python -m pip install torch
@@ -96,7 +96,7 @@ jobs:
     - name: Install dependencies (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        uv pip install --system --upgrade pip setuptools wheel pytest-xdist
+        uv pip install --system --upgrade pip 'setuptools!=78.0.1' wheel pytest-xdist
         # mltool installs
         # c.f. https://github.com/astral-sh/uv/issues/3437
         python -m pip install torch
