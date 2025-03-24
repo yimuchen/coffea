@@ -20,6 +20,7 @@ if hasattr(types, "bool"):
 else:
     _numba_bool = types.bool_
 
+
 def _make_lumi_mask_dict():
     return Dict.empty(key_type=types.uint32, value_type=types.uint32[:])
 
