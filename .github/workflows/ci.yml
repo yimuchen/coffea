@@ -55,6 +55,7 @@ jobs:
       uses: astral-sh/setup-uv@v6
       with:
         python-version: ${{ matrix.python-version }}
+        activate-environment: true
     - name: Set up JDK ${{ matrix.java-distribution }}/${{ matrix.java-version }}
       uses: actions/setup-java@v4
       with:
