@@ -3,8 +3,6 @@ import json
 import math
 import os
 import pickle
-import shutil
-import sys
 import time
 import traceback
 import uuid
@@ -12,7 +10,7 @@ import warnings
 from collections import defaultdict
 from collections.abc import Awaitable, Generator, Iterable, Mapping, MutableMapping
 from contextlib import ExitStack
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from functools import partial
 from io import BytesIO
 from itertools import repeat
@@ -354,107 +352,6 @@ class ExecutorBase:
         return type(self)(**tmp)
 
 
-@dataclass
-class DaskExecutorBase(ExecutorBase):
-    """This base class for dak-based processors
-    synthesizes all analysis inputs into one
-    task graph that's then executed by derived
-    classes.
-    """
-
-    def prepare_dataset_graph(self, items, function, accumulator):
-        accumulator = None
-        for dset, info in items.items():
-            if isinstance(items, dict) and "object_path" not in list(items.values()):
-                raise ValueError(
-                    "items should be normalized to uproot spec in prepare_dataset_graph"
-                )
-
-            metadata = info["metadata"].copy()
-            metadata["dataset"] = dset
-
-            temp = function(info["files"], metadata=metadata)
-            if accumulator is None:
-                accumulator = temp
-            else:
-                accumulator = accumulate((accumulator, temp))
-
-        return accumulator
-
-
-@dataclass
-class DaskSyncExecutor(DaskExecutorBase):
-    """Execute dask task graph in one thread
-
-    Parameters
-    ----------
-        items : list
-            List of input arguments
-        function : callable
-            A function to be called on each input, which returns an accumulator instance
-        accumulator : Accumulatable
-            An accumulator to collect the output of the function
-        status : bool
-            If true (default), enable progress bar
-        unit : str
-            Label of progress bar unit
-        desc : str
-            Label of progress bar description
-        compression : int, optional
-            Ignored for iterative executor
-    """
-
-    def __call__(
-        self,
-        items: Iterable,
-        function: Callable,
-        accumulator: Accumulatable,
-    ):
-        import dask
-
-        to_compute = self.prepare_dataset_graph(items, function, None)
-        computed = dask.compute(to_compute, scheduler="sync")
-        return computed[0] if len(computed) == 1 else computed
-
-
-@dataclass
-class DaskProcessesExecutor(DaskExecutorBase):
-    """Execute dask task graph in a multiprocessing pool
-
-    Parameters
-    ----------
-        items : list
-            List of input arguments
-        function : callable
-            A function to be called on each input, which returns an accumulator instance
-        accumulator : Accumulatable
-            An accumulator to collect the output of the function
-        status : bool
-            If true (default), enable progress bar
-        unit : str
-            Label of progress bar unit
-        desc : str
-            Label of progress bar description
-        compression : int, optional
-            Ignored for iterative executor
-    """
-
-    workers = 1
-
-    def __call__(
-        self,
-        items: Iterable,
-        function: Callable,
-        accumulator: Accumulatable,
-    ):
-        import dask
-
-        to_compute = self.prepare_dataset_graph(items, function, None)
-        with dask.config.set(num_workers=self.workers):
-            computed = dask.compute(to_compute, scheduler="processes")
-        return computed[0] if len(computed) == 1 else computed
-
-
 def _watcher(
     FH: _FuturesHolder,
     executor: ExecutorBase,
@@ -542,185 +439,6 @@ def _wait_for_merges(FH: _FuturesHolder, executor: ExecutorBase) -> Accumulatabl
                 )
             ),
             executor.compression,
-        )
-
-
-@dataclass
-class WorkQueueExecutor(ExecutorBase):
-    """Execute using Work Queue
-
-    For more information, see :ref:`intro-coffea-wq`
-
-    Parameters
-    ----------
-        items : sequence or generator
-            Sequence of input arguments
-        function : callable
-            A function to be called on each input, which returns an accumulator instance
-        accumulator : Accumulatable
-            An accumulator to collect the output of the function
-        status : bool
-            If true (default), enable progress bar
-        unit : str
-            Label of progress bar unit
-        desc : str
-            Label of progress bar description
-        compression : int, optional
-            Compress accumulator outputs in flight with LZ4, at level specified (default 9)
-            `None`` sets level to 1 (minimal compression)
-        # work queue specific options:
-        cores : int
-            Maximum number of cores for work queue task. If unset, use a whole worker.
-        memory : int
-            Maximum amount of memory (in MB) for work queue task. If unset, use a whole worker.
-        disk : int
-            Maximum amount of disk space (in MB) for work queue task. If unset, use a whole worker.
-        gpus : int
-            Number of GPUs to allocate to each task.  If unset, use zero.
-        resource_monitor : str
-            If given, one of 'off', 'measure', or 'watchdog'. Default is 'off'.
-            - 'off': turns off resource monitoring. Overridden to 'watchdog' if resources_mode
-                     is not set to 'fixed'.
-            - 'measure': turns on resource monitoring for Work Queue. The
-                        resources used per task are measured.
-            - 'watchdog': in addition to measuring resources, tasks are terminated if they
-                        go above the cores, memory, or disk specified.
-        resources_mode : str
-            one of 'fixed', 'max-seen', or 'max-throughput'. Default is 'max-seen'.
-            Sets the strategy to automatically allocate resources to tasks.
-            - 'fixed': allocate cores, memory, and disk specified for each task.
-            - 'max-seen' or 'auto': use the cores, memory, and disk given as maximum values to allocate,
-                          but first try each task by allocating the maximum values seen. Leads
-                          to a good compromise between parallelism and number of retries.
-            - 'max-throughput': Like max-seen, but first tries the task with an
-                          allocation that maximizes overall throughput.
-            If resources_mode is other than 'fixed', preprocessing and
-            accumulation tasks always use the 'max-seen' strategy, as the
-            former tasks always use the same resources, the latter has a
-            distribution of resources that increases over time.
-        split_on_exhaustion: bool
-            Whether to split a processing task in half according to its chunksize when it exhausts its
-            the cores, memory, or disk allocated to it. If False, a task that exhausts resources
-            permanently fails. Default is True.
-        fast_terminate_workers: int
-            Terminate workers on which tasks have been running longer than average.
-            The time limit is computed by multiplying the average runtime of tasks
-            by the value of 'fast_terminate_workers'. Since there are
-            legitimately slow tasks, no task may trigger fast termination in
-            two distinct workers. Less than 1 disables it.
-
-        manager_name : str
-            Name to refer to this work queue manager.
-            Sets port to 0 (any available port) if port not given.
-        port : int or tuple(int, int)
-            Port number or range (inclusive of ports )for work queue manager program.
-            Defaults to 9123 if manager_name not given.
-        password_file: str
-            Location of a file containing a password used to authenticate workers.
-        ssl: bool or tuple(str, str)
-            Enable ssl encryption between manager and workers. If a tuple, then it
-            should be of the form (key, cert), where key and cert are paths to the files
-            containing the key and certificate in pem format. If True, auto-signed temporary
-            key and cert are generated for the session.
-
-        extra_input_files: list
-            A list of files in the current working directory to send along with each task.
-            Useful for small custom libraries and configuration files needed by the processor.
-        x509_proxy : str
-            Path to the X509 user proxy. If None (the default), use the value of the
-            environment variable X509_USER_PROXY, or fallback to the file /tmp/x509up_u${UID} if
-            exists.  If False, disables the default behavior and no proxy is sent.
-
-        environment_file : optional, str
-            Conda python environment tarball to use. If not given, assume that
-            the python environment is already setup at the execution site.
-        wrapper : str
-            Wrapper script to run/open python environment tarball. Defaults to python_package_run found in PATH.
-
-        treereduction : int
-            Number of processed chunks per accumulation task. Defaults is 20.
-
-        verbose : bool
-            If true, emit a message on each task submission and completion.
-            Default is false.
-        print_stdout : bool
-            If true (default), print the standard output of work queue task on completion.
-
-        debug_log : str
-            Filename for debug output
-        stats_log : str
-            Filename for tasks statistics output
-        transactions_log : str
-            Filename for tasks lifetime reports output
-        tasks_accum_log : str
-            Filename for the log of tasks that have been processed and accumulated.
-
-        filepath: str
-            Path to the parent directory where to create the staging directory.
-            Default is "." (current working directory).
-
-        custom_init : function, optional
-            A function that takes as an argument the queue's WorkQueue object.
-            The function is called just before the first work unit is submitted
-            to the queue.
-    """
-
-    # Standard executor options:
-    compression: Optional[int] = 9  # as recommended by lz4
-    retries: int = 2  # task executes at most 3 times
-    # wq executor options:
-    manager_name: Optional[str] = None
-    port: Optional[Union[int, tuple[int, int]]] = None
-    filepath: str = "."
-    events_total: Optional[int] = None
-    x509_proxy: Optional[str] = None
-    verbose: bool = False
-    print_stdout: bool = False
-    status_display_interval: Optional[int] = 10
-    debug_log: Optional[str] = None
-    stats_log: Optional[str] = None
-    transactions_log: Optional[str] = None
-    tasks_accum_log: Optional[str] = None
-    password_file: Optional[str] = None
-    ssl: Union[bool, tuple[str, str]] = False
-    environment_file: Optional[str] = None
-    extra_input_files: list = field(default_factory=list)
-    wrapper: Optional[str] = shutil.which("poncho_package_run")
-    resource_monitor: Optional[str] = "off"
-    resources_mode: Optional[str] = "max-seen"
-    split_on_exhaustion: Optional[bool] = True
-    fast_terminate_workers: Optional[int] = None
-    cores: Optional[int] = None
-    memory: Optional[int] = None
-    disk: Optional[int] = None
-    gpus: Optional[int] = None
-    treereduction: int = 20
-    chunksize: int = 100000
-    dynamic_chunksize: Optional[dict] = None
-    custom_init: Optional[Callable] = None
-
-    # deprecated
-    bar_format: Optional[str] = None
-    chunks_accum_in_mem: Optional[int] = None
-    master_name: Optional[str] = None
-    chunks_per_accum: Optional[int] = None
-
-    def __call__(
-        self,
-        items: Iterable,
-        function: Callable,
-        accumulator: Accumulatable,
-    ):
-        from .work_queue_tools import run
-
-        return (
-            run(
-                self,
-                items,
-                function,
-                accumulator,
-            ),
-            0,
         )
 
 
@@ -1314,12 +1032,6 @@ class Runner:
             determine chunking.  Defaults to a in-memory LRU cache that holds 100k entries
             (about 1MB depending on the length of filenames, etc.)  If you edit an input file
             (please don't) during a session, the session can be restarted to clear the cache.
-        dynamic_chunksize : dict, optional
-            Whether to adapt the chunksize for units of work to run in the targets given.
-            Currently supported are 'wall_time' (in seconds), and 'memory' (in MB).
-            E.g., with {"wall_time": 120, "memory": 2048}, the chunksize will
-            be dynamically adapted so that processing jobs each run in about
-            two minutes, using two GB of memory. (Currently only for the WorkQueueExecutor.)
     """
 
     executor: ExecutorBase
@@ -1327,7 +1039,6 @@ class Runner:
     chunksize: int = 100000
     maxchunks: Optional[int] = None
     metadata_cache: Optional[MutableMapping] = None
-    dynamic_chunksize: Optional[dict] = None
     skipbadfiles: bool = False
     xrootdtimeout: Optional[int] = 60
     align_clusters: bool = False
@@ -1371,19 +1082,6 @@ class Runner:
 
         if self.metadata_cache is None:
             self.metadata_cache = DEFAULT_METADATA_CACHE
-
-        if self.align_clusters and self.dynamic_chunksize:
-            raise RuntimeError(
-                "align_clusters and dynamic_chunksize cannot be used simultaneously"
-            )
-        if self.maxchunks and self.dynamic_chunksize:
-            raise RuntimeError(
-                "maxchunks and dynamic_chunksize cannot be used simultaneously"
-            )
-        if self.dynamic_chunksize and not isinstance(self.executor, WorkQueueExecutor):
-            raise RuntimeError(
-                "dynamic_chunksize currently only supported by the WorkQueueExecutor"
-            )
 
         assert self.format in ("root", "parquet")
 
@@ -1728,7 +1426,7 @@ class Runner:
                 ),
             )
         elif format == "parquet":
-            filecontext = ParquetFileContext(item.filename)
+            raise NotImplementedError("Parquet format is not supported yet.")
 
         metadata = {
             "dataset": item.dataset,
@@ -1758,30 +1456,12 @@ class Runner:
                         metadata=metadata,
                         access_log=materialized,
                         mode="virtual",
+                        entry_start=item.entrystart,
+                        entry_stop=item.entrystop,
                     )
-                    events = factory.events()[item.entrystart : item.entrystop]
+                    events = factory.events()
                 elif format == "parquet":
-                    skyhook_options = {}
-                    if ":" in item.filename:
-                        (
-                            ceph_config_path,
-                            ceph_data_pool,
-                            filename,
-                        ) = item.filename.split(":")
-                        # patch back filename into item
-                        item = WorkItem(**dict(asdict(item), filename=filename))
-                        skyhook_options["ceph_config_path"] = ceph_config_path
-                        skyhook_options["ceph_data_pool"] = ceph_data_pool
-
-                    factory = NanoEventsFactory.from_parquet(
-                        file=item.filename,
-                        treepath=item.treename,
-                        schemaclass=schema,
-                        metadata=metadata,
-                        skyhook_options=skyhook_options,
-                        permit_dask=True,
-                    )
-                    events = factory.events()[item.entrystart : item.entrystop]
+                    raise NotImplementedError("Parquet format is not supported yet.")
             else:
                 raise ValueError(
                     "Expected schema to derive from nanoevents.BaseSchema, instead got %r"
@@ -1831,9 +1511,6 @@ class Runner:
             processor_instance : ProcessorABC
                 An instance of a class deriving from ProcessorABC
         """
-        if isinstance(self.executor, DaskExecutorBase):
-            return self.run_dask(fileset, processor_instance, treename)
-
         wrapped_out = self.run(fileset, processor_instance, treename)
         if self.use_dataframes:
             return wrapped_out  # not wrapped anymore
@@ -1875,44 +1552,9 @@ class Runner:
             # v0.7.4. This fixes tests using maxchunks.
             fileset.reverse()
         elif self.format == "parquet":
-            fileset = list(self._normalize_fileset(fileset, treename))
-            for filemeta in fileset:
-                filemeta.maybe_populate(self.metadata_cache)
-
-            self._preprocess_fileset_parquet(fileset)
-            fileset = self._filter_badfiles(fileset)
-
-            # reverse fileset list to match the order of files as presented in version
-            # v0.7.4. This fixes tests using maxchunks.
-            fileset.reverse()
+            raise NotImplementedError("Parquet format is not supported yet.")
 
         return self._chunk_generator(fileset, treename)
-
-    def run_dask(
-        self,
-        fileset: Union[dict, str, list[WorkItem], Generator],
-        processor_instance: ProcessorABC,
-        treename: str = None,
-    ) -> Accumulatable:
-        """Run the processor_instance on a given fileset
-
-        Parameters
-        ----------
-            fileset : dict | str | List[WorkItem] | Generator
-                - A dictionary ``{dataset: [file, file], }``
-                  Optionally, if some files' tree name differ, the dictionary can be specified:
-                  ``{dataset: {'treename': 'name', 'files': [file, file]}, }``
-                - A single file name
-                - File chunks for self.preprocess()
-                - Chunk generator
-            treename : str, optional
-                name of tree inside each root file, can be ``None``;
-                treename can also be defined in fileset, which will override the passed treename
-                Not needed if processing premade chunks
-            processor_instance : ProcessorABC
-                An instance of a class deriving from ProcessorABC
-        """
-        pass
 
     def run(
         self,
@@ -1989,30 +1631,12 @@ class Runner:
                 processor_instance=pi_to_send,
             )
 
-        if self.format == "root" and isinstance(self.executor, WorkQueueExecutor):
-            # keep chunks in generator, use a copy to count number of events
-            # this is cheap, as we are reading from the cache
-            chunks_to_count = self.preprocess(fileset, treename)
-        else:
-            # materialize chunks to list, then count that list
-            chunks = list(chunks)
-            chunks_to_count = chunks
-
-        events_total = sum(len(c) for c in chunks_to_count)
+        chunks = list(chunks)
 
         exe_args = {
             "unit": "chunk",
             "function_name": type(processor_instance).__name__,
         }
-        if isinstance(self.executor, WorkQueueExecutor):
-            exe_args.update(
-                {
-                    "unit": "event",
-                    "events_total": events_total,
-                    "dynamic_chunksize": self.dynamic_chunksize,
-                    "chunksize": self.chunksize,
-                }
-            )
 
         closure = partial(
             self.automatic_retries, self.retries, self.skipbadfiles, closure
@@ -2039,148 +1663,3 @@ class Runner:
             return wrapped_out["out"]
         else:
             return wrapped_out
-
-
-def run_spark_job(
-    fileset,
-    processor_instance,
-    executor,
-    executor_args={},
-    spark=None,
-    partitionsize=200000,
-    thread_workers=16,
-):
-    """A wrapper to submit spark jobs
-
-    A convenience wrapper to submit jobs for spark datasets, which is a
-    dictionary of dataset: [file list] entries.  Presently supports reading of
-    parquet files converted from root.  For more customized processing,
-    e.g. to read other objects from the files and pass them into data frames,
-    one can write a similar function in their user code.
-
-    Parameters
-    ----------
-        fileset : dict
-            dictionary {dataset: [file, file], }
-        processor_instance : ProcessorABC
-            An instance of a class deriving from ProcessorABC
-
-            .. note:: The processor instance must define all the columns in data and MC that it reads as ``.columns``
-        executor:
-            anything that inherits from `SparkExecutor` like `spark_executor`
-
-            In general, a function that takes 3 arguments: items, function accumulator
-            and performs some action equivalent to:
-            for item in items: accumulator += function(item)
-        executor_args:
-            arguments to send to the creation of a spark session
-        spark:
-            an optional already created spark instance
-
-            if ``None`` then we create an ephemeral spark instance using a config
-        partitionsize:
-            partition size to try to aim for (coalescese only, repartition too expensive)
-        thread_workers:
-            how many spark jobs to let fly in parallel during processing steps
-    """
-
-    try:
-        import pyspark
-    except ImportError as e:
-        print(
-            "you must have pyspark installed to call run_spark_job()!", file=sys.stderr
-        )
-        raise e
-
-    import warnings
-
-    import pyarrow as pa
-    from packaging import version
-
-    arrow_env = ("ARROW_PRE_0_15_IPC_FORMAT", "1")
-    if version.parse(pa.__version__) >= version.parse("0.15.0") and version.parse(
-        pyspark.__version__
-    ) < version.parse("3.0.0"):
-        import os
-
-        if arrow_env[0] not in os.environ or os.environ[arrow_env[0]] != arrow_env[1]:
-            warnings.warn(
-                "If you are using pyarrow >= 0.15.0, make sure to set %s=%s in your environment!"
-                % arrow_env
-            )
-
-    import pyspark.sql
-
-    from .spark.detail import _spark_initialize, _spark_make_dfs, _spark_stop
-    from .spark.spark_executor import SparkExecutor
-
-    if not isinstance(fileset, Mapping):
-        raise ValueError("Expected fileset to be a mapping dataset: list(files)")
-    if not isinstance(processor_instance, ProcessorABC):
-        raise ValueError("Expected processor_instance to derive from ProcessorABC")
-    if not isinstance(executor, SparkExecutor):
-        raise ValueError("Expected executor to derive from SparkExecutor")
-
-    executor_args.setdefault("config", None)
-    executor_args.setdefault("file_type", "parquet")
-    executor_args.setdefault("laurelin_version", "1.1.1")
-    executor_args.setdefault("treeName", "Events")
-    executor_args.setdefault("schema", None)
-    executor_args.setdefault("cache", True)
-    executor_args.setdefault("skipbadfiles", False)
-    executor_args.setdefault("retries", 0)
-    executor_args.setdefault("xrootdtimeout", None)
-    file_type = executor_args["file_type"]
-    treeName = executor_args["treeName"]
-    schema = executor_args["schema"]
-    if "flatten" in executor_args:
-        raise ValueError(
-            "Executor argument 'flatten' is deprecated, please refactor your processor to accept awkward arrays"
-        )
-    if "nano" in executor_args:
-        raise ValueError(
-            "Awkward0 NanoEvents no longer supported.\n"
-            "Please use 'schema': processor.NanoAODSchema to enable awkward NanoEvents processing."
-        )
-    use_cache = executor_args["cache"]
-
-    if executor_args["config"] is None:
-        executor_args.pop("config")
-
-    # initialize spark if we need to
-    # if we initialize, then we deconstruct
-    # when we're done
-    killSpark = False
-    if spark is None:
-        spark = _spark_initialize(**executor_args)
-        killSpark = True
-        use_cache = False  # if we always kill spark then we cannot use the cache
-    else:
-        if not isinstance(spark, pyspark.sql.session.SparkSession):
-            raise ValueError(
-                "Expected 'spark' to be a pyspark.sql.session.SparkSession"
-            )
-
-    dfslist = {}
-    if executor._cacheddfs is None:
-        dfslist = _spark_make_dfs(
-            spark,
-            fileset,
-            partitionsize,
-            processor_instance.columns,
-            thread_workers,
-            file_type,
-            treeName,
-        )
-
-    output = executor(
-        spark, dfslist, processor_instance, None, thread_workers, use_cache, schema
-    )
-    processor_instance.postprocess(output)
-
-    if killSpark:
-        _spark_stop(spark)
-        del spark
-        spark = None
-
-    return output
