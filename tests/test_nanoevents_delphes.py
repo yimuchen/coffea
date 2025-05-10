@@ -7,11 +7,10 @@ import pytest
 from coffea.nanoevents import DelphesSchema, NanoEventsFactory
 
 
-def _events():
+def _events(**kwargs):
     path = os.path.abspath("tests/samples/delphes.root")
     factory = NanoEventsFactory.from_root(
-        {path: "Delphes"},
-        schemaclass=DelphesSchema,
+        {path: "Delphes"}, schemaclass=DelphesSchema, **kwargs
     )
     return factory.events()
 
