@@ -1184,9 +1184,16 @@ class Runner:
                                 f'Reserved word "{rkey}" in metadata section of fileset dictionary, please rename this entry!'
                             )
                 if "treename" not in filelist and treename is None:
-                    raise ValueError(
-                        "treename must be specified if the fileset does not contain tree names"
-                    )
+                    if not isinstance(filelist["files"], dict):
+                        raise ValueError(
+                            "treename must be specified if the fileset does not contain tree names"
+                        )
+                    else:
+                        treenames = list(set(filelist["files"].values()))
+                        assert (
+                            len(treenames) == 1
+                        ), "multiple tree names found in the same dataset"
+                        treename = treenames[0]
                 local_treename = (
                     filelist["treename"] if "treename" in filelist else treename
                 )
