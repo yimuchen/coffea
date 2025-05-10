@@ -21,8 +21,6 @@ from .processor import ProcessorABC
 
 __all__ = [
     "ProcessorABC",
-    "Weights",
-    "PackedSelection",
     "IterativeExecutor",
     "FuturesExecutor",
     "DaskExecutor",
