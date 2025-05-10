@@ -31,7 +31,6 @@ from cachetools import LRUCache
 from ..nanoevents import NanoEventsFactory, schemas
 from ..util import _exception_chain, _hash, rich_bar
 from .accumulator import Accumulatable, accumulate, set_accumulator
-from .dataframe import LazyDataFrame
 from .processor import ProcessorABC
 
 try:
@@ -1292,7 +1291,7 @@ class Runner:
 
     A convenience wrapper to submit jobs for a file set, which is a
     dictionary of dataset: [file list] entries.  Supports only uproot TTree
-    reading, via NanoEvents or LazyDataFrame.  For more customized processing,
+    reading, via NanoEvents.  For more customized processing,
     e.g. to read other objects from the files and pass them into data frames,
     one can write a similar function in their user code.
 
@@ -1746,25 +1745,7 @@ class Runner:
 
         with filecontext as file:
             if schema is None:
-                # To deprecate
-                tree = None
-                events = None
-                if format == "root":
-                    tree = file[item.treename]
-                    events = uproot.dask(tree, ak_add_doc=True)[
-                        item.entrystart : item.entrystop
-                    ]
-                    setattr(events, "metadata", metadata)
-                elif format == "parquet":
-                    import dask_awkward
-
-                    tree = file
-                    events = dask_awkward.from_parquet(item.filename)[
-                        item.entrystart : item.entrystop
-                    ]
-                    setattr(events, "metadata", metadata)
-                else:
-                    raise ValueError("Format can only be root or parquet!")
+                raise ValueError("Schema must be set")
             elif issubclass(schema, schemas.BaseSchema):
                 # change here
                 if format == "root":
@@ -1776,7 +1757,7 @@ class Runner:
                         schemaclass=schema,
                         metadata=metadata,
                         access_log=materialized,
-                        delayed=True,
+                        mode="virtual",
                     )
                     events = factory.events()[item.entrystart : item.entrystop]
                 elif format == "parquet":
@@ -1808,16 +1789,7 @@ class Runner:
                 )
             tic = time.time()
             try:
-                out = None
-                if isinstance(events, LazyDataFrame):
-                    out = processor_instance.process(events)
-                else:
-                    import dask
-                    import dask_awkward
-
-                    to_compute = processor_instance.process(events)
-                    # materialized = dask_awkward.report_necessary_buffers(to_compute)
-                    out = dask.compute(to_compute, scheduler="single-threaded")[0]
+                out = processor_instance.process(events)
             except Exception as e:
                 raise Exception(f"Failed processing file: {item!r}") from e
             if out is None:
@@ -1832,12 +1804,9 @@ class Runner:
                     metrics = {}
                     if isinstance(file, uproot.ReadOnlyDirectory):
                         metrics["bytesread"] = file.file.source.num_requested_bytes
-                    # metrics["data_and_shape_buffers"] = set(materialized)
-                    # metrics["shape_only_buffers"] = set(materialized)
                     if schema is not None and issubclass(schema, schemas.BaseSchema):
+                        metrics["columns"] = set(materialized)
                         metrics["entries"] = len(events)
-                    else:
-                        metrics["entries"] = events.size
                     metrics["processtime"] = toc - tic
                     return {"out": out, "metrics": metrics, "processed": {item}}
                 return {"out": out, "processed": {item}}
