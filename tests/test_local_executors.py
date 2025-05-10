@@ -1,14 +1,10 @@
 import os.path as osp
-import sys
 
 import pytest
 
 from coffea import processor
 from coffea.nanoevents import schemas
 from coffea.processor.executor import UprootMissTreeError
-
-if sys.platform.startswith("win"):
-    pytest.skip("skipping tests that only function in linux", allow_module_level=True)
 
 
 @pytest.mark.parametrize("filetype", ["root", "parquet"])
