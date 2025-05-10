@@ -38,9 +38,6 @@ class NanoTestProcessor(processor.ProcessorABC):
         else:
             raise ValueError(f"Invalid mode: {self.mode}")
         accumulator = {
-            # replace when py3.6 is dropped
-            # "mass": hist.Hist(dataset_axis, mass_axis, name="Counts"),
-            # "pt": hist.Hist(dataset_axis, pt_axis, name="Counts"),
             "mass": mass_hist,
             "pt": pt_hist,
             "cutflow": {},
