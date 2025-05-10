@@ -12,14 +12,13 @@ def _events():
     factory = NanoEventsFactory.from_root(
         {path: "Delphes"},
         schemaclass=DelphesSchema,
-        mode="dask",
     )
     return factory.events()
 
 
 @pytest.fixture(scope="module")
 def events():
-    return _events()
+    return _events(mode="dask")
 
 
 def test_listify(events):
