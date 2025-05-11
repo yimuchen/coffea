@@ -1242,7 +1242,10 @@ class Runner:
         savemetrics: bool,
         item: WorkItem,
         processor_instance: ProcessorABC,
+        uproot_options: dict,
     ) -> dict:
+        if "timeout" in uproot_options:
+            xrootdtimeout = uproot_options["timeout"]
         if processor_instance == "heavy":
             item, processor_instance = item
         if not isinstance(processor_instance, ProcessorABC):
@@ -1252,9 +1255,8 @@ class Runner:
             filecontext = uproot.open(
                 {item.filename: None},
                 timeout=xrootdtimeout,
-                file_handler=(
-                    uproot.MemmapSource if mmap else uproot.MultithreadedFileSource
-                ),
+                handler=uproot.MemmapSource if mmap else uproot.MultithreadedFileSource,
+                **uproot_options,
             )
         elif format == "parquet":
             raise NotImplementedError("Parquet format is not supported yet.")
@@ -1391,6 +1393,7 @@ class Runner:
         fileset: Union[dict, str, list[WorkItem], Generator],
         processor_instance: ProcessorABC,
         treename: str = None,
+        uproot_options: Optional[dict] = {},
     ) -> Accumulatable:
         """Run the processor_instance on a given fileset
 
@@ -1403,12 +1406,14 @@ class Runner:
                 - A single file name
                 - File chunks for self.preprocess()
                 - Chunk generator
+            processor_instance : ProcessorABC
+                An instance of a class deriving from ProcessorABC
             treename : str, optional
                 name of tree inside each root file, can be ``None``;
                 treename can also be defined in fileset, which will override the passed treename
                 Not needed if processing premade chunks
-            processor_instance : ProcessorABC
-                An instance of a class deriving from ProcessorABC
+            uproot_options : dict, optional
+                Any options to pass to ``uproot.open``
         """
 
         meta = False
@@ -1446,6 +1451,7 @@ class Runner:
                 self.use_dataframes,
                 self.savemetrics,
                 processor_instance="heavy",
+                uproot_options=uproot_options,
             )
         else:
             closure = partial(
@@ -1457,6 +1463,7 @@ class Runner:
                 self.use_dataframes,
                 self.savemetrics,
                 processor_instance=pi_to_send,
+                uproot_options=uproot_options,
             )
 
         chunks = list(chunks)
