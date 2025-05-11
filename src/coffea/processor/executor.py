@@ -31,18 +31,6 @@ from ..util import _exception_chain, _hash, rich_bar
 from .accumulator import Accumulatable, accumulate, set_accumulator
 from .processor import ProcessorABC
 
-try:
-    from typing import Literal
-except ImportError:
-    from typing_extensions import Literal
-
-
-try:
-    from functools import cached_property
-except ImportError:
-    cached_property = property
-
-
 _PICKLE_PROTOCOL = pickle.HIGHEST_PROTOCOL
 DEFAULT_METADATA_CACHE: MutableMapping = LRUCache(100000)
 
@@ -903,9 +891,6 @@ class Runner:
     savemetrics: bool = False
     mmap: bool = False
     schema: Optional[schemas.BaseSchema] = schemas.BaseSchema
-    cachestrategy: Optional[
-        Union[Literal["dask-worker"], Callable[..., MutableMapping]]
-    ] = None  # fmt: skip
     processor_compression: int = 1
     use_skyhook: Optional[bool] = False
     skyhook_options: Optional[dict] = field(default_factory=dict)
@@ -958,24 +943,6 @@ class Runner:
             return self.executor.use_dataframes
         else:
             return False
-
-    @staticmethod
-    def get_cache(cachestrategy):
-        cache = None
-        if cachestrategy == "dask-worker":
-            from distributed import get_worker
-
-            from coffea.processor.dask import ColumnCache
-
-            worker = get_worker()
-            try:
-                cache = worker.plugins[ColumnCache.name]
-            except KeyError:
-                # emit warning if not found?
-                pass
-        elif callable(cachestrategy):
-            cache = cachestrategy()
-        return cache
 
     @staticmethod
     def automatic_retries(retries: int, skipbadfiles: bool, func, *args, **kwargs):
@@ -1271,7 +1238,6 @@ class Runner:
         xrootdtimeout: int,
         mmap: bool,
         schema: schemas.BaseSchema,
-        cache_function: Callable[[], MutableMapping],
         use_dataframes: bool,
         savemetrics: bool,
         item: WorkItem,
@@ -1316,7 +1282,6 @@ class Runner:
                     factory = NanoEventsFactory.from_root(
                         file=file,
                         treepath=item.treename,
-                        persistent_cache=cache_function(),
                         schemaclass=schema,
                         metadata=metadata,
                         access_log=materialized,
@@ -1478,7 +1443,6 @@ class Runner:
                 self.xrootdtimeout,
                 self.mmap,
                 self.schema,
-                partial(self.get_cache, self.cachestrategy),
                 self.use_dataframes,
                 self.savemetrics,
                 processor_instance="heavy",
@@ -1490,7 +1454,6 @@ class Runner:
                 self.xrootdtimeout,
                 self.mmap,
                 self.schema,
-                partial(self.get_cache, self.cachestrategy),
                 self.use_dataframes,
                 self.savemetrics,
                 processor_instance=pi_to_send,
