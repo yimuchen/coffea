@@ -1012,12 +1012,6 @@ class Runner:
                         raise ValueError(
                             "treename must be specified if the fileset does not contain tree names"
                         )
-                    else:
-                        treenames = list(set(filelist["files"].values()))
-                        assert (
-                            len(treenames) == 1
-                        ), "multiple tree names found in the same dataset"
-                        treename = treenames[0]
                 local_treename = (
                     filelist["treename"] if "treename" in filelist else treename
                 )
@@ -1032,8 +1026,12 @@ class Runner:
                 raise ValueError(
                     "list of filenames in fileset must be a list or a dict"
                 )
-            for filename in filelist:
-                yield FileMeta(dataset, filename, local_treename, user_meta)
+            if local_treename is None:
+                for filename, local_treename in filelist.items():
+                    yield FileMeta(dataset, filename, local_treename, user_meta)
+            else:
+                for filename in filelist:
+                    yield FileMeta(dataset, filename, local_treename, user_meta)
 
     @staticmethod
     def metadata_fetcher_root(
