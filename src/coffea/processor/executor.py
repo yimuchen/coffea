@@ -1323,8 +1323,9 @@ class Runner:
     def __call__(
         self,
         fileset: dict,
-        treename: str,
         processor_instance: ProcessorABC,
+        treename: Optional[str] = None,
+        uproot_options: Optional[dict] = {},
     ) -> Accumulatable:
         """Run the processor_instance on a given fileset
 
@@ -1334,13 +1335,15 @@ class Runner:
                 A dictionary ``{dataset: [file, file], }``
                 Optionally, if some files' tree name differ, the dictionary can be specified:
                 ``{dataset: {'treename': 'name', 'files': [file, file]}, }``
+            processor_instance : ProcessorABC
+                An instance of a class deriving from ProcessorABC
             treename : str
                 name of tree inside each root file, can be ``None``;
                 treename can also be defined in fileset, which will override the passed treename
-            processor_instance : ProcessorABC
-                An instance of a class deriving from ProcessorABC
+            uproot_options : dict, optional
+                Any options to pass to ``uproot.open``
         """
-        wrapped_out = self.run(fileset, processor_instance, treename)
+        wrapped_out = self.run(fileset, processor_instance, treename, uproot_options)
         if self.use_dataframes:
             return wrapped_out  # not wrapped anymore
         if self.savemetrics:
@@ -1389,7 +1392,7 @@ class Runner:
         self,
         fileset: Union[dict, str, list[WorkItem], Generator],
         processor_instance: ProcessorABC,
-        treename: str = None,
+        treename: Optional[str] = None,
         uproot_options: Optional[dict] = {},
     ) -> Accumulatable:
         """Run the processor_instance on a given fileset
