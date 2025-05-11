@@ -62,7 +62,9 @@ def test_nanoevents_analysis(
 
     if skipbadfiles:
         hists = run(
-            filelist, "Events", processor_instance=NanoEventsProcessor(mode=mode)
+            filelist,
+            processor_instance=NanoEventsProcessor(mode=mode),
+            treename="Events",
         )
         assert hists["cutflow"]["ZJets_pt"] == 18
         assert hists["cutflow"]["ZJets_mass"] == 6
@@ -75,9 +77,13 @@ def test_nanoevents_analysis(
         LookForError = (FileNotFoundError, UprootMissTreeError)
         with pytest.raises(LookForError):
             hists = run(
-                filelist, "Events", processor_instance=NanoEventsProcessor(mode=mode)
+                filelist,
+                processor_instance=NanoEventsProcessor(mode=mode),
+                treename="Events",
             )
         with pytest.raises(LookForError):
             hists = run(
-                filelist, "NotEvents", processor_instance=NanoEventsProcessor(mode=mode)
+                filelist,
+                processor_instance=NanoEventsProcessor(mode=mode),
+                treename="NotEvents",
             )
