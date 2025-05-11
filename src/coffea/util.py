@@ -193,7 +193,7 @@ def awkward_rewrap(arr, like_what, gfunc):
 
 
 # we're gonna assume that the first record array we encounter is the flattened data
-def rewrap_recordarray(layout, data, **kwargs):
+def rewrap_recordarray(layout, depth, data, **kwargs):
     if isinstance(layout, awkward.contents.RecordArray):
         return data
     return None
