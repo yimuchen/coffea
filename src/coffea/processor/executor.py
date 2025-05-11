@@ -889,7 +889,6 @@ class Runner:
     xrootdtimeout: Optional[int] = 60
     align_clusters: bool = False
     savemetrics: bool = False
-    mmap: bool = False
     schema: Optional[schemas.BaseSchema] = schemas.BaseSchema
     processor_compression: int = 1
     use_skyhook: Optional[bool] = False
@@ -1236,7 +1235,6 @@ class Runner:
     def _work_function(
         format: str,
         xrootdtimeout: int,
-        mmap: bool,
         schema: schemas.BaseSchema,
         use_dataframes: bool,
         savemetrics: bool,
@@ -1255,7 +1253,6 @@ class Runner:
             filecontext = uproot.open(
                 {item.filename: None},
                 timeout=xrootdtimeout,
-                handler=uproot.MemmapSource if mmap else uproot.MultithreadedFileSource,
                 **uproot_options,
             )
         elif format == "parquet":
@@ -1446,7 +1443,6 @@ class Runner:
                 self._work_function,
                 self.format,
                 self.xrootdtimeout,
-                self.mmap,
                 self.schema,
                 self.use_dataframes,
                 self.savemetrics,
@@ -1458,7 +1454,6 @@ class Runner:
                 self._work_function,
                 self.format,
                 self.xrootdtimeout,
-                self.mmap,
                 self.schema,
                 self.use_dataframes,
                 self.savemetrics,
