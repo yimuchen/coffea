@@ -1,8 +1,8 @@
 import os
 import os.path as osp
 
+import parsl
 from parsl.addresses import address_by_hostname
-from parsl.channels import LocalChannel
 from parsl.config import Config
 from parsl.executors import HighThroughputExecutor
 from parsl.providers import CondorProvider
@@ -51,6 +51,12 @@ def condor_config(
 
     xfer_files = [pyenv_dir, osp.join(grid_proxy_dir, x509_proxy)]
 
+    parsl_version = tuple(map(int, parsl.__version__.split(".")))
+    if parsl_version >= (2024, 3, 4):
+        max_workers_arg = {"max_workers_per_node": 1}
+    else:
+        max_workers_arg = {"max_workers": 1}
+
     condor_htex = Config(
         executors=[
             HighThroughputExecutor(
@@ -58,10 +64,8 @@ def condor_config(
                 address=address_by_hostname(),
                 prefetch_capacity=0,
                 cores_per_worker=1,
-                max_workers=cores_per_job,
                 worker_logdir_root="./",
                 provider=CondorProvider(
-                    channel=LocalChannel(),
                     init_blocks=total_workers,
                     max_blocks=max_workers,
                     nodes_per_block=1,
@@ -69,6 +73,7 @@ def condor_config(
                     transfer_input_files=xfer_files,
                     scheduler_options=condor_cfg,
                 ),
+                **max_workers_arg,
             )
         ],
         strategy=None,
