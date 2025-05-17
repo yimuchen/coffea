@@ -1031,7 +1031,7 @@ class Runner:
     xrootdtimeout: Optional[int] = 60
     align_clusters: bool = False
     savemetrics: bool = False
-    schema: Optional[schemas.BaseSchema] = schemas.BaseSchema
+    schema: Optional[schemas.BaseSchema] = schemas.NanoAODSchema
     processor_compression: int = 1
     use_skyhook: Optional[bool] = False
     skyhook_options: Optional[dict] = field(default_factory=dict)
