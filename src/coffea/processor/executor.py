@@ -1492,7 +1492,7 @@ class Runner:
     def preprocess(
         self,
         fileset: dict,
-        treename: str,
+        treename: Optional[str] = None,
     ) -> Generator:
         """Run the processor_instance on a given fileset
 
@@ -1502,6 +1502,8 @@ class Runner:
                 A dictionary ``{dataset: [file, file], }``
                 Optionally, if some files' tree name differ, the dictionary can be specified:
                 ``{dataset: {'treename': 'name', 'files': [file, file]}, }``
+                You can also define a different tree name per file in the dictionary:
+                ``{dataset: {'files': {file: 'name'}}, }``
             treename : str
                 name of tree inside each root file, can be ``None``;
                 treename can also be defined in fileset, which will override the passed treename
@@ -1542,6 +1544,8 @@ class Runner:
                 - A dictionary ``{dataset: [file, file], }``
                   Optionally, if some files' tree name differ, the dictionary can be specified:
                   ``{dataset: {'treename': 'name', 'files': [file, file]}, }``
+                  You can also define a different tree name per file in the dictionary:
+                ``{dataset: {'files': {file: 'name'}}, }``
                 - A single file name
                 - File chunks for self.preprocess()
                 - Chunk generator
