@@ -215,8 +215,8 @@ class Weights:
         self._weightStats[name] = WeightStatistics(
             weight.sum(),
             (weight**2).sum(),
-            weight.min(initial=numpy.inf),
-            weight.max(initial=-numpy.inf),
+            awkward.min(weight, mask_identity=False),
+            awkward.max(weight, mask_identity=False),
             weight.size,
         )
         self._names.append(name)
@@ -316,8 +316,8 @@ class Weights:
         self._weightStats[name] = WeightStatistics(
             weight.sum(),
             (weight**2).sum(),
-            weight.min(initial=numpy.inf),
-            weight.max(initial=-numpy.inf),
+            awkward.min(weight, mask_identity=False),
+            awkward.max(weight, mask_identity=False),
             weight.size,
         )
         self._names.append(name)
