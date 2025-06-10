@@ -285,7 +285,7 @@ class Weights:
             self.__add_delayed(name, weight, weightUp, weightDown, shift)
         else:
             raise ValueError(
-                f"Incompatible weights: self._weight={type(self.weight)}, weight={type(weight)}"
+                f"Incompatible weights: self._weight={type(self._weight)}, weight={type(weight)}"
             )
 
     def __add_multivariation_eager(
@@ -408,7 +408,7 @@ class Weights:
             )
         else:
             raise ValueError(
-                f"Incompatible weights: self._weight={type(self.weight)}, weight={type(weight)}"
+                f"Incompatible weights: self._weight={type(self._weight)}, weight={type(weight)}"
             )
 
     def __add_variation_eager(self, name, weight, weightUp, weightDown, shift):
