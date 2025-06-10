@@ -268,6 +268,8 @@ class Weights:
 
         .. note:: ``weightUp`` and ``weightDown`` are assumed to be rvalue-like and may be modified in-place by this function
         """
+        if name in self._names:
+            raise ValueError(f"Weight '{name}' already exists")
         if name.endswith("Up") or name.endswith("Down"):
             raise ValueError(
                 "Avoid using 'Up' and 'Down' in weight names, instead pass appropriate shifts to add() call"
@@ -385,6 +387,8 @@ class Weights:
 
         .. note:: ``weightUp`` and ``weightDown`` are assumed to be rvalue-like and may be modified in-place by this function
         """
+        if name in self._names:
+            raise ValueError(f"Weight '{name}' already exists")
         if name.endswith("Up") or name.endswith("Down"):
             raise ValueError(
                 "Avoid using 'Up' and 'Down' in weight names, instead pass appropriate shifts to add() call"
