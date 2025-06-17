@@ -357,17 +357,17 @@ class column_accumulator(AccumulatorABC):
     def add(self, other):
         if not isinstance(other, column_accumulator):
             raise ValueError("column_accumulator cannot be added to %r" % type(other))
-        if isinstance(self._empty, awkward.Array) and isinstance(
-            other._empty, numpy.ndarray
-        ):
-            raise ValueError(
-                "Cannot add column_accumulator with awkward.Array to one with numpy.ndarray"
-            )
         if isinstance(self._empty, numpy.ndarray) and isinstance(
             other._empty, awkward.Array
         ):
             raise ValueError(
                 "Cannot add column_accumulator with numpy.ndarray to one with awkward.Array"
+            )
+        if isinstance(self._empty, awkward.Array) and isinstance(
+            other._empty, numpy.ndarray
+        ):
+            raise ValueError(
+                "Cannot add column_accumulator with awkward.Array to one with numpy.ndarray"
             )
         if isinstance(self._empty, numpy.ndarray) and isinstance(
             other._empty, numpy.ndarray
