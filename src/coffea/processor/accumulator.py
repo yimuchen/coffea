@@ -357,11 +357,34 @@ class column_accumulator(AccumulatorABC):
     def add(self, other):
         if not isinstance(other, column_accumulator):
             raise ValueError("column_accumulator cannot be added to %r" % type(other))
-        if self._empty.ndim != other._empty.ndim:
+        if isinstance(self._empty, awkward.Array) and isinstance(
+            other._empty, numpy.ndarray
+        ):
             raise ValueError(
-                "Cannot add two column_accumulator objects of different dimensionality (%d vs %d)"
-                % (self._empty.ndim, other._empty.ndim)
+                "Cannot add column_accumulator with awkward.Array to one with numpy.ndarray"
             )
+        if isinstance(self._empty, numpy.ndarray) and isinstance(
+            other._empty, awkward.Array
+        ):
+            raise ValueError(
+                "Cannot add column_accumulator with numpy.ndarray to one with awkward.Array"
+            )
+        if isinstance(self._empty, numpy.ndarray) and isinstance(
+            other._empty, numpy.ndarray
+        ):
+            if self._empty.shape != other._empty.shape:
+                raise ValueError(
+                    "Cannot add two column_accumulator objects of dissimilar shape (%r vs %r)"
+                    % (self._empty.shape, other._empty.shape)
+                )
+        if isinstance(self._empty, awkward.Array) and isinstance(
+            other._empty, awkward.Array
+        ):
+            if self._empty.ndim != other._empty.ndim:
+                raise ValueError(
+                    "Cannot add two column_accumulator objects of dissimilar dimensionality (%r vs %r)"
+                    % (self._empty.ndim, other._empty.ndim)
+                )
         self._value = numpy.concatenate((self._value, other._value))
 
     @property
