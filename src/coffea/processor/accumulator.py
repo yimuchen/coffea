@@ -385,7 +385,7 @@ class column_accumulator(AccumulatorABC):
                     "Cannot add two column_accumulator objects of dissimilar dimensionality (%r vs %r)"
                     % (self._empty.ndim, other._empty.ndim)
                 )
-        self._value = numpy.concatenate((self._value, other._value))
+        self._value = numpy.concatenate((self._value, other._value), axis=0)
 
     @property
     def value(self):
