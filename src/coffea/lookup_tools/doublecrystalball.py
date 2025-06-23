@@ -1,11 +1,11 @@
 import numpy as np
 from scipy.stats._continuous_distns import (
-    _lazywhere,
     _norm_cdf,
     _norm_pdf_C,
     _norm_ppf,
     rv_continuous,
 )
+import scipy._lib.array_api_extra as xpx
 
 
 class doublecrystalball_gen(rv_continuous):
@@ -60,9 +60,9 @@ class doublecrystalball_gen(rv_continuous):
             return tail(x, betaL, mL)
 
         def rhs(x, betaL, betaH, mL, mH):
-            return _lazywhere(x < betaH, (-x, betaH, mH), f=core, f2=tail)
+            return xpx.apply_where(x < betaH, (-x, betaH, mH), core, tail)
 
-        return N * _lazywhere(x > -betaL, (x, betaL, betaH, mL, mH), f=rhs, f2=lhs)
+        return N * xpx.apply_where(x > -betaL, (x, betaL, betaH, mL, mH), rhs, lhs)
 
     def _logpdf(self, x, betaL, betaH, mL, mH):
         """
@@ -88,10 +88,10 @@ class doublecrystalball_gen(rv_continuous):
             return tail(x, betaL, mL)
 
         def rhs(x, betaL, betaH, mL, mH):
-            return _lazywhere(x < betaH, (-x, betaH, mH), f=core, f2=tail)
+            return xpx.apply_where(x < betaH, (-x, betaH, mH), core, tail)
 
-        return np.log(N) + _lazywhere(
-            x > -betaL, (x, betaL, betaH, mL, mH), f=rhs, f2=lhs
+        return np.log(N) + xpx.apply_where(
+            x > -betaL, (x, betaL, betaH, mL, mH), rhs, lhs
         )
 
     def _cdf(self, x, betaL, betaH, mL, mH):
@@ -133,9 +133,9 @@ class doublecrystalball_gen(rv_continuous):
             return tail(x, betaL, mL)
 
         def rhs(x, betaL, betaH, mL, mH):
-            return _lazywhere(x < betaH, (x, betaL, betaH, mL, mH), f=core, f2=hightail)
+            return xpx.apply_where(x < betaH, (x, betaL, betaH, mL, mH), core, hightail)
 
-        return N * _lazywhere(x > -betaL, (x, betaL, betaH, mL, mH), f=rhs, f2=lhs)
+        return N * xpx.apply_where(x > -betaL, (x, betaL, betaH, mL, mH), rhs, lhs)
 
     def _ppf(self, p, betaL, betaH, mL, mH):
         """
@@ -183,14 +183,14 @@ class doublecrystalball_gen(rv_continuous):
         def ppf_greater(p, betaL, betaH, mL, mH):
             N = 1.0 / (inttail(betaL, mL) + intcore(betaL, betaH) + inttail(betaH, mH))
             pbetaH = 1 - (N * (mH / betaH) * np.exp(-0.5 * betaH * betaH) / (mH - 1))
-            return _lazywhere(
-                p > pbetaH, (p, betaL, betaH, mL, mH), f=hightail, f2=core
+            return xpx.apply_where(
+                p > pbetaH, (p, betaL, betaH, mL, mH), hightail, core
             )
 
         N = 1.0 / (inttail(betaL, mL) + intcore(betaL, betaH) + inttail(betaH, mH))
         pbetaL = N * (mL / betaL) * np.exp(-0.5 * betaL * betaL) / (mL - 1)
-        return _lazywhere(
-            p < pbetaL, (p, betaL, betaH, mL, mH), f=lowtail, f2=ppf_greater
+        return xpx.apply_where(
+            p < pbetaL, (p, betaL, betaH, mL, mH), lowtail, ppf_greater
         )
 
     def _munp(self, n, betaL, betaH, mL, mH):
