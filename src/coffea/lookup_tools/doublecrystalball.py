@@ -1,11 +1,11 @@
 import numpy as np
+import scipy._lib.array_api_extra as xpx
 from scipy.stats._continuous_distns import (
     _norm_cdf,
     _norm_pdf_C,
     _norm_ppf,
     rv_continuous,
 )
-import scipy._lib.array_api_extra as xpx
 
 
 class doublecrystalball_gen(rv_continuous):
