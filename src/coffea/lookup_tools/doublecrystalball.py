@@ -109,7 +109,7 @@ class doublecrystalball_gen(rv_continuous):
             return xpx.apply_where(x < betaH, (-x, betaH, mH), core, tail)
 
         if _old_style_where:
-            return np.log(N) + xpx.apply_where(
+            return np.log(N) + _lazywhere(
                 x > -betaL, (x, betaL, betaH, mL, mH), f=rhs, f2=lhs
             )
         return np.log(N) + xpx.apply_where(
