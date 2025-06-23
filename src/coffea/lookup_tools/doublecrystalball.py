@@ -1,13 +1,24 @@
 import numpy as np
-import scipy._lib.array_api_extra as xpx
-from scipy.stats._continuous_distns import (
-    _norm_cdf,
-    _norm_pdf_C,
-    _norm_ppf,
-    rv_continuous,
-)
 
-
+_old_style_where = False
+try:
+    import scipy._lib.array_api_extra as xpx
+    from scipy.stats._continuous_distns import (
+        _norm_cdf,
+        _norm_pdf_C,
+        _norm_ppf,
+        rv_continuous,
+    )
+except ImportError as _:
+    _old_style_where = True
+    from scipy.stats._continuous_distns import (
+        _lazywhere,
+        _norm_cdf,
+        _norm_pdf_C,
+        _norm_ppf,
+        rv_continuous,
+    )
+    
 class doublecrystalball_gen(rv_continuous):
     r"""
     Double-sided Crystalball distribution
@@ -60,8 +71,12 @@ class doublecrystalball_gen(rv_continuous):
             return tail(x, betaL, mL)
 
         def rhs(x, betaL, betaH, mL, mH):
+            if _old_style_where:
+                return _lazywhere(x < betaH, (-x, betaH, mH), f=core, f2=tail)
             return xpx.apply_where(x < betaH, (-x, betaH, mH), core, tail)
 
+        if _old_style_where:
+            N * _lazywhere(x > -betaL, (x, betaL, betaH, mL, mH), f=rhs, f2=lhs)
         return N * xpx.apply_where(x > -betaL, (x, betaL, betaH, mL, mH), rhs, lhs)
 
     def _logpdf(self, x, betaL, betaH, mL, mH):
@@ -88,8 +103,14 @@ class doublecrystalball_gen(rv_continuous):
             return tail(x, betaL, mL)
 
         def rhs(x, betaL, betaH, mL, mH):
+            if _old_style_where:
+                return _lazywhere(x < betaH, (-x, betaH, mH), f=core, f2=tail)
             return xpx.apply_where(x < betaH, (-x, betaH, mH), core, tail)
 
+        if _old_style_where:
+            return np.log(N) + xpx.apply_where(
+                x > -betaL, (x, betaL, betaH, mL, mH), f=rhs, f2=lhs
+            )
         return np.log(N) + xpx.apply_where(
             x > -betaL, (x, betaL, betaH, mL, mH), rhs, lhs
         )
@@ -133,8 +154,12 @@ class doublecrystalball_gen(rv_continuous):
             return tail(x, betaL, mL)
 
         def rhs(x, betaL, betaH, mL, mH):
+            if _old_style_where:
+                return _lazywhere(x < betaH, (x, betaL, betaH, mL, mH), f=core, f2=hightail)
             return xpx.apply_where(x < betaH, (x, betaL, betaH, mL, mH), core, hightail)
 
+        if _old_style_where:
+            return _lazywhere(x > -betaL, (x, betaL, betaH, mL, mH), f=rhs, f2=lhs)
         return N * xpx.apply_where(x > -betaL, (x, betaL, betaH, mL, mH), rhs, lhs)
 
     def _ppf(self, p, betaL, betaH, mL, mH):
@@ -183,12 +208,20 @@ class doublecrystalball_gen(rv_continuous):
         def ppf_greater(p, betaL, betaH, mL, mH):
             N = 1.0 / (inttail(betaL, mL) + intcore(betaL, betaH) + inttail(betaH, mH))
             pbetaH = 1 - (N * (mH / betaH) * np.exp(-0.5 * betaH * betaH) / (mH - 1))
+            if _old_style_where:
+                return _lazywhere(
+                    p > pbetaH, (p, betaL, betaH, mL, mH), f=hightail, f2=core
+                )
             return xpx.apply_where(
                 p > pbetaH, (p, betaL, betaH, mL, mH), hightail, core
             )
 
         N = 1.0 / (inttail(betaL, mL) + intcore(betaL, betaH) + inttail(betaH, mH))
         pbetaL = N * (mL / betaL) * np.exp(-0.5 * betaL * betaL) / (mL - 1)
+        if _old_style_where:
+            return _lazywhere(
+                p < pbetaL, (p, betaL, betaH, mL, mH), f=lowtail, f2=ppf_greater
+            )
         return xpx.apply_where(
             p < pbetaL, (p, betaL, betaH, mL, mH), lowtail, ppf_greater
         )
