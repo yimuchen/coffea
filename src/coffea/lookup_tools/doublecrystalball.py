@@ -18,7 +18,8 @@ except ImportError as _:
         _norm_ppf,
         rv_continuous,
     )
-    
+
+
 class doublecrystalball_gen(rv_continuous):
     r"""
     Double-sided Crystalball distribution
@@ -155,7 +156,9 @@ class doublecrystalball_gen(rv_continuous):
 
         def rhs(x, betaL, betaH, mL, mH):
             if _old_style_where:
-                return _lazywhere(x < betaH, (x, betaL, betaH, mL, mH), f=core, f2=hightail)
+                return _lazywhere(
+                    x < betaH, (x, betaL, betaH, mL, mH), f=core, f2=hightail
+                )
             return xpx.apply_where(x < betaH, (x, betaL, betaH, mL, mH), core, hightail)
 
         if _old_style_where:
