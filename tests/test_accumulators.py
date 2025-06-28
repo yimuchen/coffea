@@ -150,7 +150,15 @@ def test_new_accumulators():
             processor.column_accumulator(np.arange(12).reshape(4, 3)),
         )
     )
-    assert a.value.sum() == 81
+    assert np.sum(a.value) == 81
+
+    a = processor.accumulate(
+        (
+            processor.column_accumulator(ak.Array(np.arange(6).reshape(2, 3))),
+            processor.column_accumulator(ak.Array(np.arange(12).reshape(4, 3))),
+        )
+    )
+    assert np.sum(a.value) == 81
 
 
 def test_accumulator_types():
