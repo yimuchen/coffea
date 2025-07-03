@@ -36,7 +36,7 @@ def test_taskvine_executor_with_virtual_arrays():
     # Create Runner with TaskVineExecutor
     from coffea.processor import Runner
 
-    executor = TaskVineExecutor(port=9123, verbose=True)
+    executor = TaskVineExecutor(port=9123, verbose=True, cores=1, disk=1024)   # max resources per task
 
     run = Runner(
         executor=executor,
