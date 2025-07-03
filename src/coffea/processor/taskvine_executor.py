@@ -1,37 +1,26 @@
+import collections
+import math
 import os
 import re
 import signal
-import pickle
-
-from tempfile import TemporaryDirectory
-from os.path import join
-
-from multiprocessing.pool import ThreadPool
-from io import BytesIO
-import lz4.frame as lz4f
-
-import collections
-from collections.abc import Generator, Iterable
+from collections.abc import Iterable
 from dataclasses import dataclass
+from multiprocessing.pool import ThreadPool
+from os.path import join
 from typing import Callable, Optional
-
-import math
 
 from coffea.util import rich_bar
 
-from .executor import (
-    WorkItem,
-    ExecutorBase,
-    _compress,
-    _decompress,
-    _compression_wrapper,
-)
-
 from .accumulator import (
-    accumulate,
     Accumulatable,
+    accumulate,
 )
-
+from .executor import (
+    ExecutorBase,
+    WorkItem,
+    _compression_wrapper,
+    _decompress,
+)
 
 # The TaskVine object is global b/c we want to
 # retain state between runs of the executor, such
@@ -423,7 +412,6 @@ class CoffeaVine(Manager):
             self.executor.concurrent_reads,
         )
 
-        executor = self.executor
         sc = self.stats_coffea
 
         # Keep track of total tasks in each state.
@@ -751,7 +739,7 @@ class CoffeaVineTask(PythonTask):
         m.soft_terminate(self)
 
     def debug_info(self):
-        msg = "{} with '{}' result.".format(self.itemid, self.result)
+        msg = f"{self.itemid} with '{self.result}' result."
         return msg
 
     def exhausted(self):
@@ -814,7 +802,7 @@ class CoffeaVineTask(PythonTask):
 class PreProcTask(CoffeaVineTask):
     def __init__(self, m, fn, item, itemid=None):
         if not itemid:
-            itemid = "pre_{}".format(CoffeaVineTask.tasks_counter)
+            itemid = f"pre_{CoffeaVineTask.tasks_counter}"
 
         self.item = item
 
@@ -824,7 +812,7 @@ class PreProcTask(CoffeaVineTask):
         self.set_category("preprocessing")
         if re.search("://", item.filename) or os.path.isabs(item.filename):
             # This looks like an URL or an absolute path (assuming shared
-            # filesystem). Not transfering file.
+            # filesystem). Not transferring file.
             pass
         else:
             f = m.declare_file(item.filename, cache=False)
@@ -841,7 +829,7 @@ class PreProcTask(CoffeaVineTask):
     def debug_info(self):
         i = self.item
         msg = super().debug_info()
-        return "{} {}".format((i.dataset, i.filename, i.treename), msg)
+        return f"{(i.dataset, i.filename, i.treename)} {msg}"
 
 
 class ProcTask(CoffeaVineTask):
@@ -849,7 +837,7 @@ class ProcTask(CoffeaVineTask):
         self.size = len(item)
 
         if not itemid:
-            itemid = "p_{}".format(CoffeaVineTask.tasks_counter)
+            itemid = f"p_{CoffeaVineTask.tasks_counter}"
 
         self.item = item
         super().__init__(m, fn, [item], itemid, bring_back_output=bring_back_output)
@@ -857,7 +845,7 @@ class ProcTask(CoffeaVineTask):
         self.set_category("processing")
         if re.search("://", item.filename) or os.path.isabs(item.filename):
             # This looks like an URL or an absolute path (assuming shared
-            # filesystem). Not transfering file.
+            # filesystem). Not transferring file.
             pass
         else:
             f = m.declare_file(item.filename, cache=False)
@@ -884,7 +872,7 @@ class ProcTask(CoffeaVineTask):
             return super().resubmit(m)
 
     def split(self, m):
-        m.console.warn(f"spliting task id {self.id} after resource exhaustion.")
+        m.console.warn(f"splitting task id {self.id} after resource exhaustion.")
 
         total = len(self.item)
         if total < 2:
@@ -934,7 +922,7 @@ class AccumTask(CoffeaVineTask):
         self, m, fn, tasks_to_accumulate, itemid=None, bring_back_output=False
     ):
         if not itemid:
-            itemid = "accum_{}".format(CoffeaVineTask.tasks_counter)
+            itemid = f"accum_{CoffeaVineTask.tasks_counter}"
 
         self.tasks_to_accumulate = tasks_to_accumulate
         self.size = sum(len(t) for t in self.tasks_to_accumulate)
@@ -980,7 +968,7 @@ class AccumTask(CoffeaVineTask):
                 msg, "\n".join([t.result for t in tasks])
             )
         else:
-            return "{} accumulating: []".format(msg)
+            return f"{msg} accumulating: []"
 
 
 def _handle_early_terminate(signum, frame, raise_on_repeat=True):
@@ -1011,9 +999,7 @@ def _get_x509_proxy(x509_proxy=None):
     if x509_proxy:
         return x509_proxy
 
-    x509_proxy = join(
-        os.environ.get("TMPDIR", "/tmp"), "x509up_u{}".format(os.getuid())
-    )
+    x509_proxy = join(os.environ.get("TMPDIR", "/tmp"), f"x509up_u{os.getuid()}")
     if os.path.exists(x509_proxy):
         return x509_proxy
 

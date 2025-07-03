@@ -18,8 +18,8 @@ from .executor import (
     ParslExecutor,
     Runner,
 )
-from .taskvine_executor import TaskVineExecutor
 from .processor import ProcessorABC
+from .taskvine_executor import TaskVineExecutor
 
 __all__ = [
     "ProcessorABC",
