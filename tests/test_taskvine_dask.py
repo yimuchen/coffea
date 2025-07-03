@@ -27,13 +27,11 @@ def histogram_common():
     return q1_hist
 
 
+@pytest.mark.skipif(
+    not pytest.importorskip("ndcctools.taskvine", reason="TaskVine not available"),
+    reason="TaskVine not available",
+)
 def test_taskvine_local_env():
-    try:
-        from ndcctools.taskvine import DaskVine, Factory
-    except ImportError:
-        print("taskvine is not installed. Omitting test.")
-        return
-
     m = DaskVine(port=0)
     workers = Factory(manager=m, batch_type="local")
     workers.min_workers = 1
