@@ -50,8 +50,8 @@ def test_taskvine_executor_with_virtual_arrays():
         workers = Factory(manager_host_port="localhost:9123", batch_type="local")
         workers.min_workers = 1
         workers.max_workers = 1
-        workers.cores = 1
-        workers.disk = 2048
+        workers.cores = 2
+        workers.disk = 4096
 
         with workers:
             hists = run(

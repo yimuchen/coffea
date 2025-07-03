@@ -42,7 +42,8 @@ def test_taskvine_local_env():
     workers = Factory(manager=m, batch_type="local")
     workers.min_workers = 1
     workers.max_workers = 1
-    workers.cores = 1
+    workers.cores = 2
+    workers.disk = 4096
 
     q1_hist = histogram_common()
     with workers:
