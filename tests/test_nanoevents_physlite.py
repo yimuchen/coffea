@@ -144,3 +144,49 @@ def test_electron_forms():
         "form_key": "node0",
     }
     assert json.dumps(expected_json) == mocked.to_json()
+
+
+def test_entry_start_and_entry_stop():
+
+    NanoEventsFactory.from_root(
+        {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
+        mode="eager",
+        schemaclass=PHYSLITESchema,
+        entry_start=31,
+        iteritems_options=dict(
+            filter_name=lambda name: name
+            in [
+                "AnalysisElectronsAuxDyn.pt",
+                "AnalysisElectronsAuxDyn.trackParticleLinks",
+            ]
+        ),
+    ).events()
+
+    NanoEventsFactory.from_root(
+        {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
+        mode="eager",
+        schemaclass=PHYSLITESchema,
+        entry_stop=31,
+        iteritems_options=dict(
+            filter_name=lambda name: name
+            in [
+                "AnalysisElectronsAuxDyn.pt",
+                "AnalysisElectronsAuxDyn.trackParticleLinks",
+            ]
+        ),
+    ).events()
+
+    NanoEventsFactory.from_root(
+        {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
+        mode="eager",
+        schemaclass=PHYSLITESchema,
+        entry_start=31,
+        entry_stop=62,
+        iteritems_options=dict(
+            filter_name=lambda name: name
+            in [
+                "AnalysisElectronsAuxDyn.pt",
+                "AnalysisElectronsAuxDyn.trackParticleLinks",
+            ]
+        ),
+    ).events()
