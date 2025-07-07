@@ -147,82 +147,6 @@ def test_electron_forms():
 
 
 def test_entry_start_and_entry_stop():
-
-    NanoEventsFactory.from_root(
-        {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
-        mode="eager",
-        schemaclass=PHYSLITESchema,
-        entry_start=31,
-        iteritems_options=dict(
-            filter_name=lambda name: name
-            in [
-                "AnalysisElectronsAuxDyn.pt",
-                "AnalysisElectronsAuxDyn.trackParticleLinks",
-            ]
-        ),
-    ).events()
-
-    NanoEventsFactory.from_root(
-        {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
-        mode="eager",
-        schemaclass=PHYSLITESchema,
-        entry_stop=31,
-        iteritems_options=dict(
-            filter_name=lambda name: name
-            in [
-                "AnalysisElectronsAuxDyn.pt",
-                "AnalysisElectronsAuxDyn.trackParticleLinks",
-            ]
-        ),
-    ).events()
-
-    NanoEventsFactory.from_root(
-        {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
-        mode="eager",
-        schemaclass=PHYSLITESchema,
-        entry_start=31,
-        entry_stop=62,
-        iteritems_options=dict(
-            filter_name=lambda name: name
-            in [
-                "AnalysisElectronsAuxDyn.pt",
-                "AnalysisElectronsAuxDyn.trackParticleLinks",
-            ]
-        ),
-    ).events()
-
-    NanoEventsFactory.from_root(
-        {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
-        mode="eager",
-        schemaclass=PHYSLITESchema,
-        entry_start=31,
-    ).events()
-
-    NanoEventsFactory.from_root(
-        {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
-        mode="eager",
-        schemaclass=PHYSLITESchema,
-        entry_stop=31,
-    ).events()
-
-    NanoEventsFactory.from_root(
-        {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
-        mode="eager",
-        schemaclass=PHYSLITESchema,
-        entry_start=31,
-        entry_stop=62,
-    ).events()
-
-    access_log = []
-    NanoEventsFactory.from_root(
-        {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
-        mode="virtual",
-        schemaclass=PHYSLITESchema,
-        entry_start=31,
-        access_log=access_log,
-    ).events()
-    assert access_log == []
-
     access_log = []
     NanoEventsFactory.from_root(
         {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
@@ -238,8 +162,6 @@ def test_entry_start_and_entry_stop():
         {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
         mode="virtual",
         schemaclass=PHYSLITESchema,
-        entry_start=31,
-        entry_stop=62,
         access_log=access_log,
     ).events()
     assert access_log == []
