@@ -213,24 +213,33 @@ def test_entry_start_and_entry_stop():
         entry_stop=62,
     ).events()
 
+    access_log = []
     NanoEventsFactory.from_root(
         {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
         mode="virtual",
         schemaclass=PHYSLITESchema,
         entry_start=31,
+        access_log=access_log,
     ).events()
+    assert access_log == []
 
+    access_log = []
     NanoEventsFactory.from_root(
         {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
         mode="virtual",
         schemaclass=PHYSLITESchema,
         entry_stop=31,
+        access_log=access_log,
     ).events()
+    assert access_log == []
 
+    access_log = []
     NanoEventsFactory.from_root(
         {"tests/samples/PHYSLITE_example.root": "CollectionTree"},
         mode="virtual",
         schemaclass=PHYSLITESchema,
         entry_start=31,
         entry_stop=62,
+        access_log=access_log,
     ).events()
+    assert access_log == []
