@@ -36,7 +36,7 @@ def offsets(stack):
 
     Signature: array,!offsets
     """
-    stack.append(to_layout(stack.pop())._compact_offsets64(True))
+    stack.append(to_layout(stack.pop()).offsets)
 
 
 def mask(stack):
