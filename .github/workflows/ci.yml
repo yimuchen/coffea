@@ -116,7 +116,7 @@ jobs:
     - name: Test with pytest (${{ matrix.dask-client }} dask Client - run in parallel)
       if: matrix.dask-client == 'without'
       run: |
-        python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -m "not dask_client"
+        python -m pytest --cov-report=xml --cov=coffea --deselect=test_taskvine -m "not dask_client" -n 4
     - name: Test with pytest (${{ matrix.dask-client }} dask Client)
       if: matrix.dask-client == 'with'
       run: |
