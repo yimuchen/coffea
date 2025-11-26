@@ -339,9 +339,9 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
         """Thin wrapper around tritonclient.infer to automatic retry with backoff+jitter on inference server failures"""
         try:
             return self.client.infer(
-                self.model, self.model_version, inputs=inputs, outputs=outputs
+                self.model, model_version=self.version, inputs=inputs, outputs=outputs
             )
-        except tritonclient.utils.InferenceServerExecption as err:
+        except tritonclient.utils.InferenceServerException as err:
             if attempt > self.max_retry_attempts:
                 raise err
             else:
