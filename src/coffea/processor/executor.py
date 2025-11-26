@@ -8,7 +8,14 @@ import traceback
 import uuid
 import warnings
 from collections import defaultdict
-from collections.abc import Awaitable, Generator, Iterable, Mapping, MutableMapping
+from collections.abc import (
+    Awaitable,
+    Callable,
+    Generator,
+    Iterable,
+    Mapping,
+    MutableMapping,
+)
 from contextlib import ExitStack
 from dataclasses import dataclass, field
 from functools import partial
@@ -16,9 +23,8 @@ from io import BytesIO
 from itertools import repeat
 from typing import (
     Any,
-    Callable,
+    Literal,
     Optional,
-    Union,
 )
 
 import awkward
@@ -29,6 +35,7 @@ import uproot
 from cachetools import LRUCache
 
 from ..nanoevents import NanoEventsFactory, schemas
+from ..nanoevents.util import key_to_tuple
 from ..util import _exception_chain, _hash, deprecate, rich_bar
 from .accumulator import Accumulatable, accumulate, set_accumulator
 from .checkpointer import CheckpointerABC
@@ -170,7 +177,7 @@ class WorkItem:
     entrystart: int
     entrystop: int
     fileuuid: str
-    usermeta: Optional[dict] = field(default=None, compare=False)
+    usermeta: dict | None = field(default=None, compare=False)
 
     def __len__(self) -> int:
         return self.entrystop - self.entrystart
@@ -343,8 +350,8 @@ class ExecutorBase:
     status: bool = True
     unit: str = "items"
     desc: str = "Processing"
-    compression: Optional[int] = 1
-    function_name: Optional[str] = None
+    compression: int | None = 1
+    function_name: str | None = None
 
     def __call__(
         self,
@@ -366,7 +373,7 @@ def _watcher(
     FH: _FuturesHolder,
     executor: ExecutorBase,
     merge_fcn: Callable,
-    pool: Optional[Callable] = None,
+    pool: Callable | None = None,
 ) -> Accumulatable:
     with rich_bar() as progress:
         p_id = progress.add_task(executor.desc, total=FH.running, unit=executor.unit)
@@ -556,20 +563,16 @@ class FuturesExecutor(ExecutorBase):
             Number of retries for failed tasks (default: 3)
     """
 
-    pool: Union[
-        Callable[..., concurrent.futures.Executor], concurrent.futures.Executor
-    ] = concurrent.futures.ProcessPoolExecutor  # fmt: skip
-    mergepool: Optional[
-        Union[
-            Callable[..., concurrent.futures.Executor],
-            concurrent.futures.Executor,
-            bool,
-        ]
-    ] = None
+    pool: (
+        Callable[..., concurrent.futures.Executor] | concurrent.futures.Executor
+    ) = concurrent.futures.ProcessPoolExecutor  # fmt: skip
+    mergepool: None | (
+        Callable[..., concurrent.futures.Executor] | concurrent.futures.Executor | bool
+    ) = None
     recoverable: bool = False
-    merging: Union[bool, tuple[int, int, int]] = False
+    merging: bool | tuple[int, int, int] = False
     workers: int = 1
-    tailtimeout: Optional[int] = None
+    tailtimeout: int | None = None
     retries: int = 3
 
     def __post_init__(self):
@@ -684,7 +687,7 @@ class DaskExecutor(ExecutorBase):
     treereduction: int = 20
     priority: int = 0
     retries: int = 3
-    heavy_input: Optional[bytes] = None
+    heavy_input: bytes | None = None
     use_dataframes: bool = False
     # secret options
     worker_affinity: bool = False
@@ -865,12 +868,12 @@ class ParslExecutor(ExecutorBase):
             Number of retries for failed tasks (default: 3)
     """
 
-    tailtimeout: Optional[int] = None
+    tailtimeout: int | None = None
     config: Optional["parsl.config.Config"] = None  # noqa
     recoverable: bool = False
-    merging: Optional[Union[bool, tuple[int, int, int]]] = False
-    jobs_executors: Union[str, list] = "all"
-    merges_executors: Union[str, list] = "all"
+    merging: bool | tuple[int, int, int] | None = False
+    jobs_executors: str | list = "all"
+    merges_executors: str | list = "all"
     retries: int = 3
 
     def __post_init__(self):
@@ -1055,20 +1058,23 @@ class Runner:
     """
 
     executor: ExecutorBase
-    pre_executor: Optional[ExecutorBase] = None
+    pre_executor: ExecutorBase | None = None
     chunksize: int = 100000
-    maxchunks: Optional[int] = None
-    metadata_cache: Optional[MutableMapping] = None
-    skipbadfiles: Union[bool, tuple[type[BaseException], ...]] = False
-    xrootdtimeout: Optional[int] = 60
+    maxchunks: int | None = None
+    metadata_cache: MutableMapping | None = None
+    skipbadfiles: bool | tuple[type[BaseException], ...] = False
+    xrootdtimeout: int | None = 60
     align_clusters: bool = False
     savemetrics: bool = False
-    schema: Optional[schemas.BaseSchema] = schemas.NanoAODSchema
+    schema: schemas.BaseSchema | None = schemas.NanoAODSchema
     processor_compression: int = 1
-    use_skyhook: Optional[bool] = False
-    skyhook_options: Optional[dict] = field(default_factory=dict)
+    use_skyhook: bool | None = False
+    skyhook_options: dict | None = field(default_factory=dict)
     format: str = "root"
-    checkpointer: Optional[CheckpointerABC] = None
+    checkpointer: CheckpointerABC | None = None
+    cachestrategy: None | (Literal["dask-worker"] | Callable[..., MutableMapping]) = (
+        None
+    )
 
     @staticmethod
     def read_coffea_config():
@@ -1116,9 +1122,27 @@ class Runner:
             return False
 
     @staticmethod
+    def get_cache(cachestrategy):
+        cache = None
+        if cachestrategy == "dask-worker":
+            from distributed import get_worker
+
+            from coffea.processor.dask import ColumnCache
+
+            worker = get_worker()
+            try:
+                cache = worker.plugins[ColumnCache.name]
+            except KeyError:
+                # emit warning if not found?
+                pass
+        elif callable(cachestrategy):
+            cache = cachestrategy()
+        return cache
+
+    @staticmethod
     def automatic_retries(
         retries: int,
-        skipbadfiles: Union[bool, tuple[type[BaseException], ...]],
+        skipbadfiles: bool | tuple[type[BaseException], ...],
         func,
         *args,
         **kwargs,
@@ -1402,12 +1426,11 @@ class Runner:
         use_dataframes: bool,
         savemetrics: bool,
         item: WorkItem,
-        processor_instance: Union[
-            ProcessorABC, Callable[[awkward.highlevel.Array], Any]
-        ],
+        processor_instance: ProcessorABC | Callable[[awkward.highlevel.Array], Any],
         uproot_options: dict,
         iteritems_options: dict,
         checkpointer: CheckpointerABC,
+        cache_function: Callable[[], MutableMapping],
     ) -> dict:
         if "timeout" in uproot_options:
             xrootdtimeout = uproot_options["timeout"]
@@ -1472,6 +1495,7 @@ class Runner:
                             entry_start=item.entrystart,
                             entry_stop=item.entrystop,
                             iteritems_options=iteritems_options,
+                            buffer_cache=cache_function(),
                         )
                         events = factory.events()
                     elif format == "parquet":
@@ -1508,7 +1532,10 @@ class Runner:
                     if isinstance(file, uproot.ReadOnlyDirectory):
                         metrics["bytesread"] = file.file.source.num_requested_bytes
                     if schema is not None and issubclass(schema, schemas.BaseSchema):
-                        metrics["columns"] = set(materialized)
+                        metrics["columns"] = {
+                            f"{x.branch}-{key_to_tuple(x.buffer_key)[3]}"
+                            for x in materialized
+                        }
                         metrics["entries"] = len(events)
                     metrics["processtime"] = toc - tic
                     out = {"out": out, "metrics": metrics, "processed": {item}}
@@ -1527,13 +1554,11 @@ class Runner:
     def __call__(
         self,
         fileset: dict,
-        processor_instance: Union[
-            ProcessorABC, Callable[[awkward.highlevel.Array], Any]
-        ],
+        processor_instance: ProcessorABC | Callable[[awkward.highlevel.Array], Any],
         *args,
-        treename: Optional[str] = None,
-        uproot_options: Optional[dict] = {},
-        iteritems_options: Optional[dict] = {},
+        treename: str | None = None,
+        uproot_options: dict | None = {},
+        iteritems_options: dict | None = {},
     ) -> Accumulatable:
         """Run the processor_instance on a given fileset
 
@@ -1579,7 +1604,7 @@ class Runner:
         self,
         fileset: dict,
         *args,
-        treename: Optional[str] = None,
+        treename: str | None = None,
     ) -> Generator:
         """Preprocess the fileset and generate work items
 
@@ -1618,14 +1643,12 @@ class Runner:
 
     def run(
         self,
-        fileset: Union[dict, str, list[WorkItem], Generator],
-        processor_instance: Union[
-            ProcessorABC, Callable[[awkward.highlevel.Array], Any]
-        ],
+        fileset: dict | str | list[WorkItem] | Generator,
+        processor_instance: ProcessorABC | Callable[[awkward.highlevel.Array], Any],
         *args,
-        treename: Optional[str] = None,
-        uproot_options: Optional[dict] = {},
-        iteritems_options: Optional[dict] = {},
+        treename: str | None = None,
+        uproot_options: dict | None = {},
+        iteritems_options: dict | None = {},
     ) -> Accumulatable:
         """Run the processor_instance on a given fileset
 
@@ -1703,6 +1726,7 @@ class Runner:
                 uproot_options=uproot_options,
                 iteritems_options=iteritems_options,
                 checkpointer=self.checkpointer,
+                cache_function=partial(self.get_cache, self.cachestrategy),
             )
         else:
             closure = partial(
@@ -1716,6 +1740,7 @@ class Runner:
                 uproot_options=uproot_options,
                 iteritems_options=iteritems_options,
                 checkpointer=self.checkpointer,
+                cache_function=partial(self.get_cache, self.cachestrategy),
             )
 
         chunks = list(chunks)

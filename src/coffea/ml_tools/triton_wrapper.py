@@ -1,7 +1,6 @@
 # For python niceties
 import time
 import warnings
-from typing import Optional
 
 import numpy
 
@@ -60,9 +59,7 @@ class triton_wrapper(nonserializable_attribute, numpy_call_wrapper):
     max_retry_attempts = 5
     retry_jitter_base_ms = 100
 
-    def __init__(
-        self, model_url: str, client_args: Optional[dict] = None, batch_size=-1
-    ):
+    def __init__(self, model_url: str, client_args: dict | None = None, batch_size=-1):
         if _triton_import_error is not None:
             warnings.warn(
                 "Users should make sure the tritonclient package is installed before proceeding!\n"
