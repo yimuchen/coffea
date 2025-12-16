@@ -763,6 +763,11 @@ class NanoEventsFactory:
         """The file handle used to open the source file, if available."""
         return getattr(self._mapping, "_file_handle", None)
 
+    @property
+    def buffer_cache(self):
+        """The buffer cache used to store loaded buffers, if available."""
+        return getattr(self._mapping, "_buffer_cache", None)
+
     def events(self):
         """
         Build events
@@ -798,6 +803,11 @@ class NanoEventsFactory:
                 backend="cpu",
                 byteorder=awkward._util.native_byteorder,
                 allow_noncanonical_form=False,
+                enable_virtualarray_caching=(
+                    True
+                    if self.buffer_cache is None
+                    else lambda form_key, attribute: attribute != "data"
+                ),
                 highlevel=True,
                 behavior=self._schema.behavior(),
                 attrs={
